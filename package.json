@@ -4,7 +4,11 @@
   "description": "Small v8 profiler",
   "main": "run.js",
   "scripts": {
-    "profile": "node --trace-opt --trace-deopt run.js"
+    "start": "node run.js",
+    "analyze": "node --allow-natives-syntax run.js",
+    "profile": "node --trace-opt --trace-deopt run.js",
+    "profile-deep": "node --trace-opt --trace-deopt --trace-deopt-verbose --allow-natives-syntax run.js",
+    "profile-prof": "node --prof --trace-opt --trace-deopt run.js"
   },
   "keywords": [],
   "author": "IxxyDev",
