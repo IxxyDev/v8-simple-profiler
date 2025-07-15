@@ -13,17 +13,9 @@ It measures execution time, analyzes V8 optimization status, and provides insigh
 ## Prerequisites
 
 - **Node.js**: v16.0.0 or higher
-- **npm**: v7.0.0 or higher
 - **Operating System**: macOS, Linux, or Windows
 
 ## How to Run
-
-### 1. Install Dependencies
-```bash
-npm install
-```
-
-### 2. Choose Your Profiling Mode
 
 **Basic Profiling** (no special flags needed):
 ```bash
@@ -45,7 +37,7 @@ npm run profile
 npm run profile-deep
 ```
 
-### 3. Understanding the Output
+### Understanding the Output
 
 The profiler will show:
 - Performance comparison between polymorphic and monomorphic code
