@@ -1,3 +1,0 @@
-name,status,mean_ms,median_ms,min_ms,max_ms,std_dev_ms,reliability,outliers,total_measurements,p25_ms,p75_ms,p90_ms,p95_ms,p99_ms,v8_available,optimized,deoptimized,optimization_attempts,timestamp
-hotLoop,success,1.2063,0.9584,0.8277,5.3259,0.6987,medium,1,50,0.9048,1.1014,1.8735,2.1158,3.8121,no,no,no,,2025-07-16T18:36:13.017Z
-optimizedLoop,success,0.4266,0.3226,0.2677,1.0873,0.2506,medium,7,50,0.3056,0.3552,0.9955,1.0556,1.0806,no,no,no,,2025-07-16T18:36:13.099Z
