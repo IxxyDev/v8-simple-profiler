@@ -1,0 +1,100 @@
+{
+  "timestamp": "2025-07-16T18:35:51.335Z",
+  "version": "1.0.0",
+  "results": [
+    {
+      "name": "hotLoop",
+      "status": "success",
+      "timing": {
+        "mean": 1.1995,
+        "median": 0.896,
+        "min": 0.7637,
+        "max": 5.3952,
+        "stdDev": 0.8085,
+        "variance": 0.6537,
+        "percentiles": {
+          "p25": 0.8577,
+          "p75": 1.0326,
+          "p90": 1.9037,
+          "p95": 2.0506,
+          "p99": 5.3104
+        },
+        "outliers": 3,
+        "reliability": "medium",
+        "count": 100
+      },
+      "metadata": {
+        "warmupRuns": 15,
+        "testRuns": 100,
+        "timestamp": "2025-07-16T18:35:51.183Z",
+        "nodeVersion": "v18.19.0",
+        "v8Version": "10.2.154.26-node.28"
+      }
+    },
+    {
+      "name": "optimizedLoop",
+      "status": "success",
+      "timing": {
+        "mean": 0.4041,
+        "median": 0.3169,
+        "min": 0.272,
+        "max": 1.0457,
+        "stdDev": 0.2158,
+        "variance": 0.0466,
+        "percentiles": {
+          "p25": 0.2976,
+          "p75": 0.3433,
+          "p90": 0.883,
+          "p95": 0.9641,
+          "p99": 1.0375
+        },
+        "outliers": 14,
+        "reliability": "medium",
+        "count": 100
+      },
+      "metadata": {
+        "warmupRuns": 15,
+        "testRuns": 100,
+        "timestamp": "2025-07-16T18:35:51.284Z",
+        "nodeVersion": "v18.19.0",
+        "v8Version": "10.2.154.26-node.28"
+      }
+    }
+  ],
+  "summary": {
+    "totalFunctions": 2,
+    "successfulFunctions": 2,
+    "failedFunctions": 0,
+    "totalMeasurements": 200,
+    "performance": {
+      "fastest": {
+        "name": "optimizedLoop",
+        "mean": 0.4041
+      },
+      "slowest": {
+        "name": "hotLoop",
+        "mean": 1.1995
+      },
+      "speedupRatio": 2.9683246721108634,
+      "averageExecutionTime": 0.8018
+    },
+    "reliability": {
+      "distribution": {
+        "medium": 2
+      },
+      "overall": "medium"
+    },
+    "optimization": {
+      "v8Available": false,
+      "optimizedFunctions": 0,
+      "optimizationRate": 0
+    }
+  },
+  "metadata": {
+    "nodeVersion": "v18.19.0",
+    "v8Version": "10.2.154.26-node.28",
+    "platform": "darwin",
+    "arch": "arm64",
+    "totalResults": 2
+  }
+}

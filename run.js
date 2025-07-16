@@ -1,85 +1,63 @@
-import './lib/deopt.js';
-import './lib/report.js';
-
-import { wrap } from './lib/timer.js';
-import { analyzeFunction, forceOptimize, analyzePerformance, decodeOptimizationStatus } from './lib/deopt.js';
+import { createProfiler } from './src/core/profiler.js';
+import { formatConsoleReport } from './src/reporters/console.js';
 import { hotLoop, optimizedLoop } from './example/hot.js';
-
-const timedHot = wrap(hotLoop, 'hotLoop');
-const timedOptimized = wrap(optimizedLoop, 'optimizedLoop');
 
 console.log('=== V8 DEOPTIMIZATION PROFILER ===\n');
 
-// Warmup to trigger V8 compilation
-for (let i = 0; i < 10; i++) {
-  timedHot();
-  timedOptimized();
-}
-
-forceOptimize(hotLoop, 'hotLoop');
-forceOptimize(optimizedLoop, 'optimizedLoop');
-
-timedHot();
-timedOptimized();
-
-console.log('=== PERFORMANCE TESTS ===');
-
-const hotStart = performance.now();
-for (let i = 0; i < 1_000; i++) {
-  timedHot();
-}
-const hotEnd = performance.now();
-const hotTime = hotEnd - hotStart;
-
-// Delay between tests to avoid interference
-setTimeout(() => {
-  const optStart = performance.now();
-  for (let i = 0; i < 1_000; i++) {
-    timedOptimized();
+const config = {
+  profiling: {
+    warmupRuns: 10,
+    testRuns: 1000,
+    delayBetweenTests: 100
+  },
+  v8: {
+    enableIntrinsics: true,
+    forceOptimization: true,
+    monitorStderr: true
+  },
+  output: {
+    format: 'console',
+    verbose: false
+  },
+  analysis: {
+    outlierThreshold: 2,
+    showInsights: true
   }
-  const optEnd = performance.now();
-  const optTime = optEnd - optStart;
+};
 
-  setTimeout(() => {
-    analyzePerformance(hotTime, optTime);
+const benchmarks = [
+  { name: 'hotLoop', fn: hotLoop },
+  { name: 'optimizedLoop', fn: optimizedLoop }
+];
 
-    try {
-      console.log('\n=== V8 OPTIMIZATION STATUS ===');
-      const hotStatus = eval('%GetOptimizationStatus(hotLoop)');
-      const optStatus = eval('%GetOptimizationStatus(optimizedLoop)');
+try {
+  const profiler = await createProfiler(config);
 
-      console.log(`hotLoop status: ${hotStatus}`);
-      const hotFlags = decodeOptimizationStatus(hotStatus);
-      console.log('  Flags:', Object.entries(hotFlags).filter(([_, v]) => v).map(([k, _]) => k).join(', '));
+  if (!profiler.v8Available) {
+    console.log('V8 intrinsics not available. Run with: node --allow-natives-syntax run.js');
+  }
 
-      console.log(`\noptimizedLoop status: ${optStatus}`);
-      const optFlags = decodeOptimizationStatus(optStatus);
-      console.log('  Flags:', Object.entries(optFlags).filter(([_, v]) => v).map(([k, _]) => k).join(', '));
+  const results = await profiler.runBenchmarks(benchmarks);
 
-      console.log('\n=== KEY INSIGHTS ===');
-      if (hotFlags.is_topTierTurbofan) {
-        console.log('✓ hotLoop: TurboFan optimized');
-      } else if (hotFlags.optimized) {
-        console.log('✓ hotLoop: Optimized');
-      }
+  formatConsoleReport(results, {
+    verbose: config.output.verbose,
+    showInsights: config.analysis.showInsights
+  });
 
-      if (optFlags.is_topTierTurbofan) {
-        console.log('✓ optimizedLoop: TurboFan optimized');
-      } else if (optFlags.optimized) {
-        console.log('✓ optimizedLoop: Optimized');
-      }
+  if (results.length >= 2) {
+    const hotResult = results.find(r => r.name === 'hotLoop');
+    const optResult = results.find(r => r.name === 'optimizedLoop');
 
-      if (hotFlags.maybe_deopted) {
-        console.log('⚠ hotLoop: May have been deoptimized');
-      }
-
-      if (hotFlags.optimized_osr || optFlags.optimized_osr) {
-        console.log('→ OSR (On-Stack Replacement) detected');
-      }
-
-    } catch (e) {
-      console.log('\n=== V8 INTRINSICS NOT AVAILABLE ===');
-      console.log('Run with: node --allow-natives-syntax run.js');
+    if (hotResult?.timing && optResult?.timing) {
+      const ratio = optResult.timing.mean / hotResult.timing.mean;
+      console.log('\n=== LEGACY PERFORMANCE ANALYSIS ===');
+      console.log(`hotLoop (polymorphic): ${hotResult.timing.mean.toFixed(2)}ms`);
+      console.log(`optimizedLoop (monomorphic): ${optResult.timing.mean.toFixed(2)}ms`);
+      console.log(`Ratio: ${ratio.toFixed(2)}x (${ratio > 1 ? 'polymorphic is faster' : 'monomorphic is faster'})`);
     }
-  }, 100);
-}, 100);
+  }
+
+} catch (error) {
+  console.error('Error:', error.message);
+  process.exit(1);
+}

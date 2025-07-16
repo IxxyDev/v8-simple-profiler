@@ -1,0 +1,24 @@
+{
+  "profiling": {
+    "warmupRuns": 10,
+    "testRuns": 1000,
+    "iterations": 1,
+    "delayBetweenTests": 100
+  },
+  "output": {
+    "format": "console",
+    "directory": "./reports",
+    "filename": "profiler-{timestamp}",
+    "verbose": false
+  },
+  "analysis": {
+    "outlierThreshold": 2,
+    "confidenceLevel": 0.95,
+    "showInsights": true
+  },
+  "v8": {
+    "enableIntrinsics": true,
+    "forceOptimization": true,
+    "monitorStderr": true
+  }
+}
