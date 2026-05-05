@@ -40,7 +40,7 @@ Config file examples:
   ./profiler.config.js
   ./config/profiler.config.json
 
-For more information, visit: https://github.com/IxxyDev/v8-deopt
+For more information, visit: https://github.com/IxxyDev/v8-simple-profiler
 `);
 
 program.action(async (options) => {

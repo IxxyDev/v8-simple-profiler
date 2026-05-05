@@ -1,6 +1,6 @@
 # v8-simple-profiler
 
-[![License: ISC](https://img.shields.io/badge/License-ISC-blue.svg)](https://opensource.org/licenses/ISC)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 ![Node.js](https://img.shields.io/badge/Node.js-%E2%89%A516-43853d)
 
 A small Node.js profiler that demonstrates and measures V8's optimization behavior — specifically the cost of polymorphic vs monomorphic code paths.
@@ -45,6 +45,7 @@ For deeper V8 inspection (the scripts below already pass the right Node flags):
 npm run analyze        # V8 intrinsics enabled (--allow-natives-syntax)
 npm run profile        # --trace-opt --trace-deopt
 npm run profile-deep   # all of the above + verbose deopt info
+npm run profile-prof   # writes a V8 .log for `node --prof-process`
 ```
 
 ## CLI
@@ -164,4 +165,4 @@ optimizedLoop is 2.73× faster than hotLoop
 
 ## License
 
-ISC
+MIT — see [LICENSE](LICENSE).

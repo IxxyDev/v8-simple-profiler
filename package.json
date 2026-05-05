@@ -23,7 +23,7 @@
   },
   "keywords": ["v8", "profiler", "deoptimization", "performance", "benchmark", "optimization"],
   "author": "IxxyDev",
-  "license": "ISC",
+  "license": "MIT",
   "type": "module",
   "engines": {
     "node": ">=16.0.0"
