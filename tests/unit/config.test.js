@@ -6,8 +6,10 @@ import {
   validateConfig,
   findAndLoadConfig 
 } from '../../src/utils/config.js';
-import { writeFile, unlink, mkdir } from 'fs/promises';
+import { writeFile, unlink, mkdir, mkdtemp, rm } from 'fs/promises';
 import { existsSync } from 'fs';
+import { tmpdir } from 'os';
+import { join } from 'path';
 
 describe('Configuration System', () => {
   const testConfigPath = './test-config.json';
@@ -79,7 +81,13 @@ describe('Configuration System', () => {
     });
 
     it('should throw error for unsupported file format', async () => {
-      await expect(loadConfig('./test.txt')).rejects.toThrow('Unsupported config file format');
+      const txtPath = './test.txt';
+      await writeFile(txtPath, 'dummy');
+      try {
+        await expect(loadConfig(txtPath)).rejects.toThrow('Unsupported config file format');
+      } finally {
+        if (existsSync(txtPath)) await unlink(txtPath);
+      }
     });
   });
 
@@ -173,8 +181,16 @@ describe('Configuration System', () => {
 
   describe('findAndLoadConfig', () => {
     it('should return empty object when no config files exist', async () => {
-      const config = await findAndLoadConfig();
-      expect(config).toEqual({});
+      const isolated = await mkdtemp(join(tmpdir(), 'v8-profiler-cfg-'));
+      const originalCwd = process.cwd();
+      try {
+        process.chdir(isolated);
+        const config = await findAndLoadConfig();
+        expect(config).toEqual({});
+      } finally {
+        process.chdir(originalCwd);
+        await rm(isolated, { recursive: true, force: true });
+      }
     });
 
     it('should load custom config path when provided', async () => {
