@@ -1,4 +1,10 @@
-import { setupV8Monitoring, getOptimizationStatus, isV8IntrinsicsAvailable } from './v8-monitor.js';
+import {
+  setupV8Monitoring,
+  getOptimizationStatus,
+  isV8IntrinsicsAvailable,
+  prepareForOptimization,
+  optimizeOnNextCall,
+} from './v8-monitor.js';
 import { calculateStats, detectOutliers, assessReliability } from './metrics.js';
 import { delay, withTimeout } from '../utils/async.js';
 import { DEFAULT_CONFIG } from '../utils/config.js';
@@ -40,29 +46,38 @@ export async function createProfiler(options = {}) {
     async runSingleBenchmark(benchmark) {
       const { name, fn } = benchmark;
 
-      // Warmup phase
+      const shouldForce = this.v8Available && config.v8.forceOptimization;
+
+      // %PrepareFunctionForOptimization must be called before V8 collects
+      // type feedback for the function — i.e. before warmup. On Node ≥ 16,
+      // skipping this and calling %OptimizeFunctionOnNextCall fatally aborts
+      // the process (uncatchable), which is why the old `eval`-by-name
+      // implementation only "worked" because its ReferenceError prevented the
+      // intrinsic from ever running.
+      if (shouldForce) {
+        prepareForOptimization(fn);
+      }
+
       console.log(`Warming up ${name}...`);
       await this.warmupFunction(fn, config.profiling.warmupRuns);
 
-      // Force optimization if V8 available
-      if (this.v8Available && config.v8.forceOptimization) {
+      if (shouldForce) {
+        optimizeOnNextCall(fn);
+        // Trigger call to actually compile the optimized code.
         try {
-          eval(`%OptimizeFunctionOnNextCall(${name})`);
-        } catch (e) {
-          // Silently fail if intrinsics unavailable
+          await fn();
+        } catch (error) {
+          console.warn(`Optimization trigger call failed for ${name}:`, error.message);
         }
       }
 
-      // Measurement phase
       console.log(`Measuring ${name}...`);
       const measurements = await this.measureFunction(fn, config.profiling.testRuns);
 
-      // Statistical analysis
       const stats = calculateStats(measurements);
       const outliers = detectOutliers(measurements, config.analysis.outlierThreshold);
       const reliability = assessReliability(stats);
 
-      // V8 optimization analysis
       const optimization = this.v8Available
         ? getOptimizationStatus(fn, name)
         : { available: false };
@@ -107,10 +122,8 @@ export async function createProfiler(options = {}) {
           measurements.push(end - start);
         } catch (error) {
           console.warn(`Measurement ${i + 1} failed:`, error.message);
-          // Continue with other measurements
         }
 
-        // Show progress for long-running tests
         if (runs > 1000 && i % Math.floor(runs / 10) === 0) {
           console.log(`Progress: ${Math.round((i / runs) * 100)}%`);
         }

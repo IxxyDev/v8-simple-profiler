@@ -1,79 +1,155 @@
 export const optimizationInfo = new Map();
 export const deoptedFunctions = new Set();
 
-let stderrMonitoring = false;
+// V8 --trace-opt / --trace-deopt writes to stdout in modern Node (≥ ~Node 14
+// the messages moved from stderr to stdout). The previous implementation only
+// patched stderr, so it never captured anything in current runtimes. We patch
+// both streams to stay compatible with older Node, and accumulate a line
+// buffer because process.stdout chunks may split V8's `[...]\n` records.
+let stdoutPatched = false;
+let stderrPatched = false;
+let originalStdoutWrite = null;
 let originalStderrWrite = null;
+let lineBuffer = '';
+const MAX_BUFFER = 64 * 1024;
+
+// V8 emits two flavours of optimization markers:
+//   [marking 0x… <JSFunction foo (sfi = …)> for optimization to MAGLEV, …, reason: hot and stable]
+//   [manually marking 0x… <JSFunction foo (sfi = …)> for optimization to TURBOFAN_JS, ConcurrencyMode::kSynchronous]
+// The "manually" variant has no `reason:` field. We capture the tail between
+// the tier and the closing `]` and extract `reason:` in a second step.
+//
+// Anonymous functions appear as `<JSFunction (sfi = …)>` (no name) and are
+// intentionally skipped — there is no identifier to attribute counters to.
+const OPT_PATTERN = /\[(?:manually\s+)?marking\s+0x[0-9a-f]+\s+<JSFunction\s+([^\s<>(]+)\s+\([^)]*\)>\s+for optimization to\s+([A-Z_]+)([^\]]*)\]/g;
+const DEOPT_PATTERN = /\[bailout\s+\(kind:\s*([^,]+),\s*reason:\s*([^)]+)\):[^<]*<JSFunction\s+([^\s<>(]+)\s+\([^)]*\)>/g;
+const REASON_TAIL = /reason:\s*(.+?)\s*$/;
+
+// V8 intrinsics must be invoked from a scope that can see the function
+// argument. The previous implementation interpolated the benchmark name into
+// an eval() string, which fails because the named identifier doesn't exist in
+// this module's scope — the error was silently swallowed and intrinsics never
+// actually ran. Building helpers via `new Function('fn', ...)` makes the
+// function argument the resolved identifier inside the intrinsic call.
+//
+// On modern V8 (Node ≥ 16), %OptimizeFunctionOnNextCall must be preceded by
+// %PrepareFunctionForOptimization or V8 aborts the process (fatal, not a
+// catchable exception). The lifecycle is:
+//   prepareForOptimization(fn) → warmup calls → optimizeOnNextCall(fn) →
+//   trigger call → getOptimizationStatus(fn)
+function makeIntrinsic(body) {
+  try {
+    return new Function('fn', body);
+  } catch {
+    return null;
+  }
+}
+
+const intrinsicPrepare = makeIntrinsic('%PrepareFunctionForOptimization(fn)');
+const intrinsicOptimize = makeIntrinsic('return %OptimizeFunctionOnNextCall(fn)');
+const intrinsicStatus = makeIntrinsic('return %GetOptimizationStatus(fn)');
+
+let intrinsicsAvailableCache = null;
 
 export function setupV8Monitoring() {
-  if (stderrMonitoring) return;
-
-  try {
-    originalStderrWrite = process.stderr.write.bind(process.stderr);
-    process.stderr.write = monitorStderr;
-    stderrMonitoring = true;
-  } catch (error) {
-    console.warn('Failed to setup V8 stderr monitoring:', error.message);
+  if (!stdoutPatched) {
+    try {
+      originalStdoutWrite = process.stdout.write.bind(process.stdout);
+      process.stdout.write = makeMonitor(process.stdout, originalStdoutWrite);
+      stdoutPatched = true;
+    } catch (error) {
+      console.warn('Failed to setup V8 stdout monitoring:', error.message);
+    }
+  }
+  if (!stderrPatched) {
+    try {
+      originalStderrWrite = process.stderr.write.bind(process.stderr);
+      process.stderr.write = makeMonitor(process.stderr, originalStderrWrite);
+      stderrPatched = true;
+    } catch (error) {
+      console.warn('Failed to setup V8 stderr monitoring:', error.message);
+    }
   }
 }
 
 export function stopV8Monitoring() {
-  if (!stderrMonitoring || !originalStderrWrite) return;
-
-  try {
+  if (stdoutPatched && originalStdoutWrite) {
+    process.stdout.write = originalStdoutWrite;
+    stdoutPatched = false;
+  }
+  if (stderrPatched && originalStderrWrite) {
     process.stderr.write = originalStderrWrite;
-    stderrMonitoring = false;
-  } catch (error) {
-    console.warn('Failed to stop V8 stderr monitoring:', error.message);
+    stderrPatched = false;
   }
+  lineBuffer = '';
 }
 
-function monitorStderr(chunk, enc, cb) {
-  const output = chunk.toString();
-
-  try {
-    parseOptimizationEvents(output);
-    parseDeoptimizationEvents(output);
-  } catch (error) {
-    console.warn('Error parsing V8 stderr output:', error.message);
-  }
-
-  return originalStderrWrite.call(this, chunk, enc, cb);
-}
-
-function parseOptimizationEvents(output) {
-  const optimizationPattern = /<JSFunction\s+([^<>\s\(]+).*reason:\s*([^}]+)/;
-  const match = output.match(optimizationPattern);
-
-  if (match && output.includes('marking') && output.includes('for optimization')) {
-    const [, funcName, reason] = match;
-
-    if (!optimizationInfo.has(funcName)) {
-      optimizationInfo.set(funcName, { attempts: 0, reasons: [] });
+function makeMonitor(stream, original) {
+  return function patchedWrite(chunk, enc, cb) {
+    try {
+      ingestChunk(chunk);
+    } catch {
+      // Monitoring must never break the user's I/O.
     }
+    return original(chunk, enc, cb);
+  };
+}
 
-    const info = optimizationInfo.get(funcName);
-    info.attempts++;
-    info.reasons.push(reason.trim());
+function ingestChunk(chunk) {
+  const text = typeof chunk === 'string' ? chunk : chunk?.toString?.('utf8');
+  if (!text) return;
+  lineBuffer += text;
+
+  let newlineIdx;
+  while ((newlineIdx = lineBuffer.indexOf('\n')) !== -1) {
+    const line = lineBuffer.slice(0, newlineIdx);
+    lineBuffer = lineBuffer.slice(newlineIdx + 1);
+    if (line) parseTraceLine(line);
+  }
+
+  if (lineBuffer.length > MAX_BUFFER) {
+    // Drop the head — protects us from a stream that never emits newlines.
+    lineBuffer = lineBuffer.slice(-MAX_BUFFER / 2);
   }
 }
 
-function parseDeoptimizationEvents(output) {
-  const deoptPattern = /<JSFunction\s+([^<>\s\(]+)/;
-  const match = output.match(deoptPattern);
+function parseTraceLine(line) {
+  if (line.indexOf('<JSFunction') === -1) return;
 
-  if (match && output.includes('bailout') && output.includes('deoptimizing')) {
-    const [, funcName] = match;
-    deoptedFunctions.add(funcName);
+  for (const match of line.matchAll(OPT_PATTERN)) {
+    const [, funcName, tier, tail] = match;
+    const reasonMatch = tail.match(REASON_TAIL);
+    const reason = reasonMatch ? reasonMatch[1] : 'manual';
+    const info = optimizationInfo.get(funcName) ?? { attempts: 0, reasons: [], tiers: [] };
+    info.attempts++;
+    info.reasons.push(reason);
+    info.tiers.push(tier);
+    optimizationInfo.set(funcName, info);
   }
+
+  for (const match of line.matchAll(DEOPT_PATTERN)) {
+    const [, , reason, funcName] = match;
+    deoptedFunctions.add(funcName);
+    const info = optimizationInfo.get(funcName) ?? { attempts: 0, reasons: [], tiers: [] };
+    info.deoptReasons = info.deoptReasons ?? [];
+    info.deoptReasons.push(reason.trim());
+    optimizationInfo.set(funcName, info);
+  }
+}
+
+// Exposed only for tests: feed a chunk through the parser without patching
+// process streams. Not part of the public API.
+export function ingestTraceChunkForTesting(chunk) {
+  ingestChunk(chunk);
 }
 
 export function getOptimizationStatus(fn, name) {
-  if (!isV8IntrinsicsAvailable()) {
+  if (!isV8IntrinsicsAvailable() || !intrinsicStatus) {
     return { available: false };
   }
 
   try {
-    const status = eval(`%GetOptimizationStatus(${name})`);
+    const status = intrinsicStatus(fn);
     const flags = decodeOptimizationStatus(status);
     const info = optimizationInfo.get(name);
 
@@ -118,31 +194,49 @@ export function decodeOptimizationStatus(status) {
 }
 
 export function isV8IntrinsicsAvailable() {
+  if (intrinsicsAvailableCache !== null) return intrinsicsAvailableCache;
+  if (!intrinsicStatus) return (intrinsicsAvailableCache = false);
   try {
-    eval('%GetOptimizationStatus(function(){})');
+    intrinsicStatus(function probe() {});
+    return (intrinsicsAvailableCache = true);
+  } catch {
+    return (intrinsicsAvailableCache = false);
+  }
+}
+
+export function prepareForOptimization(fn) {
+  if (!intrinsicPrepare) return false;
+  try {
+    intrinsicPrepare(fn);
     return true;
-  } catch (error) {
+  } catch {
     return false;
   }
 }
 
-export function forceOptimization(fn, name) {
-  if (!isV8IntrinsicsAvailable()) {
-    return false;
-  }
-
+export function optimizeOnNextCall(fn) {
+  if (!intrinsicOptimize) return false;
   try {
-    eval(`%OptimizeFunctionOnNextCall(${name})`);
+    intrinsicOptimize(fn);
     return true;
-  } catch (error) {
-    console.warn(`Failed to force optimization for ${name}:`, error.message);
+  } catch {
     return false;
   }
+}
+
+// Runs the full V8 forced-optimization handshake. The caller is still
+// responsible for warming the function up before this call and for invoking
+// it once afterwards to trigger compilation.
+export function forceOptimization(fn) {
+  if (!isV8IntrinsicsAvailable()) return false;
+  if (!prepareForOptimization(fn)) return false;
+  return optimizeOnNextCall(fn);
 }
 
 export function clearOptimizationData() {
   optimizationInfo.clear();
   deoptedFunctions.clear();
+  lineBuffer = '';
 }
 
 export function getOptimizationInsights(result) {
