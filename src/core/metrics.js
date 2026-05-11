@@ -134,23 +134,41 @@ export function compareResults(baseline, comparison) {
   };
 }
 
+// Welch's unequal-variances t-test. Unlike pooled Student, this does not
+// assume var1 == var2 — a safer default for microbenchmark timings, where
+// fast-path and slow-path samples almost never share dispersion.
+//
+// calculateStats stores *population* variance (Σ(x-μ)² / n) so existing
+// reporters keep their numbers. Welch is defined on *sample* variance
+// (Σ(x-μ)² / (n-1)), so we convert here.
 function calculateSignificance(baselineStats, comparisonStats) {
   const n1 = baselineStats.count;
   const n2 = comparisonStats.count;
   const mean1 = baselineStats.mean;
   const mean2 = comparisonStats.mean;
-  const var1 = baselineStats.variance;
-  const var2 = comparisonStats.variance;
 
-  const pooledVariance = ((n1 - 1) * var1 + (n2 - 1) * var2) / (n1 + n2 - 2);
-  const standardError = Math.sqrt(pooledVariance * (1/n1 + 1/n2));
+  if (n1 < 2 || n2 < 2) {
+    return { tStatistic: 0, degreesOfFreedom: 0, significant: false, confidenceLevel: 0 };
+  }
 
-  const tStatistic = Math.abs(mean1 - mean2) / standardError;
-  const degreesOfFreedom = n1 + n2 - 2;
+  const sampleVar1 = (baselineStats.variance * n1) / (n1 - 1);
+  const sampleVar2 = (comparisonStats.variance * n2) / (n2 - 1);
+
+  const seSquared = sampleVar1 / n1 + sampleVar2 / n2;
+  const standardError = Math.sqrt(seSquared);
+
+  const tStatistic = standardError === 0 ? 0 : Math.abs(mean1 - mean2) / standardError;
+
+  // Welch–Satterthwaite approximation for degrees of freedom.
+  const dfNumerator = seSquared * seSquared;
+  const dfDenominator =
+    Math.pow(sampleVar1 / n1, 2) / (n1 - 1) +
+    Math.pow(sampleVar2 / n2, 2) / (n2 - 1);
+  const degreesOfFreedom = dfDenominator === 0 ? 0 : dfNumerator / dfDenominator;
 
   return {
     tStatistic: Number(tStatistic.toFixed(4)),
-    degreesOfFreedom,
+    degreesOfFreedom: Number(degreesOfFreedom.toFixed(2)),
     significant: tStatistic > 2.0,
     confidenceLevel: tStatistic > 2.576 ? 99 : tStatistic > 1.96 ? 95 : tStatistic > 1.645 ? 90 : 0
   };
