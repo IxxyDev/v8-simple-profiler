@@ -39,14 +39,16 @@ npm start          # basic run
 npm test           # run unit tests
 ```
 
-For deeper V8 inspection (the scripts below already pass the right Node flags):
+Each benchmark is executed in a forked child process. The parent forwards
+the V8 flags it needs (`--allow-natives-syntax`, `--trace-opt`,
+`--trace-deopt`) to the child via `execArgv`, so you do not have to pass
+them yourself. The child's V8 trace is piped back to the parent through
+`stdout` and parsed line-by-line — that's how the per-function
+optimization attempts and deopt reasons end up in the final report.
 
-```bash
-npm run analyze        # V8 intrinsics enabled (--allow-natives-syntax)
-npm run profile        # --trace-opt --trace-deopt
-npm run profile-deep   # all of the above + verbose deopt info
-npm run profile-prof   # writes a V8 .log for `node --prof-process`
-```
+To opt out, set `v8.enableIntrinsics: false` (skips
+`--allow-natives-syntax`) or `v8.traceOptimization: false` (skips the
+trace flags) in your config.
 
 ## CLI
 

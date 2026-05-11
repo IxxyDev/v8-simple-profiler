@@ -8,10 +8,6 @@
   },
   "scripts": {
     "start": "node run.js",
-    "analyze": "node --allow-natives-syntax run.js",
-    "profile": "node --trace-opt --trace-deopt run.js",
-    "profile-deep": "node --trace-opt --trace-deopt --trace-deopt-verbose --allow-natives-syntax run.js",
-    "profile-prof": "node --prof --trace-opt --trace-deopt run.js",
     "cli": "node src/cli/index.js",
     "cli:help": "node src/cli/index.js --help",
     "benchmark": "node src/cli/index.js --config config/profiler.config.js",
