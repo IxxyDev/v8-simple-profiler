@@ -81,8 +81,8 @@ program.action(async (options) => {
 
     console.log(chalk.green(`Found ${benchmarks.length} benchmark(s) to profile`));
 
-    if (config.data.v8.enableIntrinsics && !profiler.v8Available) {
-      console.log(chalk.yellow('V8 intrinsics not available. Run with --allow-natives-syntax for detailed analysis.'));
+    if (!config.data.v8.enableIntrinsics) {
+      console.log(chalk.yellow('V8 intrinsics disabled in config — tier flags and trace counters will not appear.'));
     }
 
     const results = await profiler.runBenchmarks(benchmarks);

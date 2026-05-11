@@ -113,7 +113,7 @@ function ingestChunk(chunk) {
   }
 }
 
-function parseTraceLine(line) {
+export function parseTraceLine(line) {
   if (line.indexOf('<JSFunction') === -1) return;
 
   for (const match of line.matchAll(OPT_PATTERN)) {

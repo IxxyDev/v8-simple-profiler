@@ -15,7 +15,7 @@ describe('loadBenchmarks', () => {
     await rm(dir, { recursive: true, force: true });
   });
 
-  it('loads every named function export of a file', async () => {
+  it('returns descriptors {name, path, exportName} for every function export', async () => {
     const file = join(dir, 'bench.js');
     await writeFile(file, `
       export function a() { return 1; }
@@ -25,10 +25,11 @@ describe('loadBenchmarks', () => {
     const benchmarks = await loadBenchmarks([file]);
     const names = benchmarks.map(b => b.name).sort();
     expect(names).toEqual(['a', 'b']);
-    expect(benchmarks.find(b => b.name === 'a').fn()).toBe(1);
+    expect(benchmarks.every(b => b.path === file)).toBe(true);
+    expect(benchmarks.find(b => b.name === 'a').exportName).toBe('a');
   });
 
-  it('loads a single export when path#name is given', async () => {
+  it('returns a single descriptor when path#name is given', async () => {
     const file = join(dir, 'bench.js');
     await writeFile(file, `
       export function a() { return 'a'; }
@@ -36,8 +37,7 @@ describe('loadBenchmarks', () => {
     `);
     const benchmarks = await loadBenchmarks([`${file}#b`]);
     expect(benchmarks).toHaveLength(1);
-    expect(benchmarks[0].name).toBe('b');
-    expect(benchmarks[0].fn()).toBe('b');
+    expect(benchmarks[0]).toMatchObject({ name: 'b', exportName: 'b', path: file });
   });
 
   it('throws a helpful error when the named export is missing', async () => {
@@ -52,31 +52,34 @@ describe('loadBenchmarks', () => {
       .rejects.toThrow(/not found/);
   });
 
-  it('includes the default export when it is a function', async () => {
+  it('reports the default export under the name "default" with a sentinel', async () => {
     const file = join(dir, 'bench.js');
     await writeFile(file, `
       export default function () { return 'd'; }
       export function named() { return 'n'; }
     `);
     const benchmarks = await loadBenchmarks([file]);
-    const names = benchmarks.map(b => b.name).sort();
-    expect(names).toEqual(['default', 'named']);
+    const byName = Object.fromEntries(benchmarks.map(b => [b.name, b]));
+    expect(byName.default.exportName).toBe('__default__');
+    expect(byName.named.exportName).toBe('named');
   });
 
-  it('merges benchmarks from multiple files', async () => {
+  it('merges descriptors from multiple files', async () => {
     const a = join(dir, 'a.js');
     const b = join(dir, 'b.js');
     await writeFile(a, `export function fromA(){return 'a';}`);
     await writeFile(b, `export function fromB(){return 'b';}`);
     const benchmarks = await loadBenchmarks([a, b]);
     expect(benchmarks.map(x => x.name).sort()).toEqual(['fromA', 'fromB']);
+    expect(benchmarks.find(x => x.name === 'fromA').path).toBe(a);
+    expect(benchmarks.find(x => x.name === 'fromB').path).toBe(b);
   });
 
   it('falls back to example/hot.js when no specs given', async () => {
-    // Runs against the real example file in the repo.
     const benchmarks = await loadBenchmarks([]);
     expect(benchmarks.length).toBeGreaterThan(0);
-    expect(benchmarks.every(b => typeof b.fn === 'function')).toBe(true);
+    expect(benchmarks.every(b => typeof b.path === 'string')).toBe(true);
+    expect(benchmarks.every(b => typeof b.exportName === 'string')).toBe(true);
   });
 });
 
