@@ -2,7 +2,6 @@
 
 import { Command } from 'commander';
 import chalk from 'chalk';
-import { existsSync } from 'fs';
 import { resolve } from 'path';
 
 import { createProfiler } from '../core/profiler.js';
@@ -10,6 +9,7 @@ import { findAndLoadConfig, mergeConfig, validateConfig, DEFAULT_CONFIG } from '
 import { formatConsoleReport } from '../reporters/console.js';
 import { saveJsonReport, generateFilename } from '../reporters/json.js';
 import { saveCsvReport } from '../reporters/csv.js';
+import { loadBenchmarks, collectBenchmarkSpecs } from './load-benchmarks.js';
 
 const program = new Command();
 
@@ -18,6 +18,12 @@ program
   .description('V8 deoptimization profiler with comprehensive analysis and reporting')
   .version('1.0.0')
   .option('-c, --config <path>', 'path to configuration file')
+  .option(
+    '-b, --benchmarks <spec>',
+    'benchmark file(s) to profile; comma-separate or repeat the flag. Use path#functionName to pick one export',
+    collectBenchmarkSpecs,
+    []
+  )
   .option('-f, --format <type>', 'output format (console, json, csv, all)', 'console')
   .option('-o, --output <directory>', 'output directory for reports', './reports')
   .option('-w, --warmup <runs>', 'number of warmup runs', parseInt)
@@ -35,6 +41,9 @@ Examples:
   $ v8-profiler --format json -o ./out   # Export to JSON
   $ v8-profiler --runs 5000 --verbose    # More runs with verbose output
   $ v8-profiler --format all             # Export to all formats
+  $ v8-profiler -b ./bench.js            # Profile every export of bench.js
+  $ v8-profiler -b ./bench.js#hotPath    # Profile only the hotPath export
+  $ v8-profiler -b a.js -b b.js#fn       # Multiple benchmark files
 
 Config file examples:
   ./profiler.config.js
@@ -63,7 +72,7 @@ program.action(async (options) => {
 
     const profiler = await createProfiler(config.data);
 
-    const benchmarks = await loadBenchmarks();
+    const benchmarks = await loadBenchmarks(options.benchmarks);
 
     if (benchmarks.length === 0) {
       console.error(chalk.red('No benchmarks found. Please add benchmark functions.'));
@@ -161,21 +170,6 @@ function buildCliConfig(options) {
   }
 
   return cliConfig;
-}
-
-async function loadBenchmarks() {
-  const benchmarkPath = resolve('./example/hot.js');
-
-  if (!existsSync(benchmarkPath)) {
-    throw new Error(`Benchmark file not found: ${benchmarkPath}`);
-  }
-
-  const { hotLoop, optimizedLoop } = await import(benchmarkPath);
-
-  return [
-    { name: 'hotLoop', fn: hotLoop },
-    { name: 'optimizedLoop', fn: optimizedLoop }
-  ];
 }
 
 async function generateReports(results, config, options) {
