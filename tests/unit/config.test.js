@@ -16,12 +16,11 @@ describe('Configuration System', () => {
   const testConfigJsPath = './test-config.js';
   
   beforeEach(async () => {
-    // Clean up any existing test files
     try {
       if (existsSync(testConfigPath)) await unlink(testConfigPath);
       if (existsSync(testConfigJsPath)) await unlink(testConfigJsPath);
-    } catch (error) {
-      // Ignore cleanup errors
+    } catch {
+      // best-effort cleanup
     }
   });
 

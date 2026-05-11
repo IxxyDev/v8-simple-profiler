@@ -3,38 +3,34 @@ import { existsSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
-// Default configuration with all profiling options
 export const DEFAULT_CONFIG = {
   profiling: {
-    warmupRuns: 10,           // Number of warmup iterations
-    testRuns: 1000,           // Number of measurement iterations
-    iterations: 1,            // Number of complete test cycles
-    delayBetweenTests: 100    // Milliseconds between tests
+    warmupRuns: 10,
+    testRuns: 1000,
+    iterations: 1,
+    delayBetweenTests: 100, // ms
   },
-  
+
   output: {
-    format: 'console',        // 'console', 'json', 'csv', 'all'
-    directory: './reports',   // Output directory for file exports
-    filename: 'profiler-{timestamp}', // Filename template
-    verbose: false            // Include detailed output
+    format: 'console', // 'console' | 'json' | 'csv' | 'all'
+    directory: './reports',
+    filename: 'profiler-{timestamp}',
+    verbose: false,
   },
-  
+
   analysis: {
-    outlierThreshold: 2,      // Standard deviations for outlier detection
-    confidenceLevel: 0.95,    // Statistical confidence level
-    showInsights: true        // Include performance insights
+    outlierThreshold: 2, // z-score (standard deviations from the mean)
+    confidenceLevel: 0.95,
+    showInsights: true,
   },
-  
+
   v8: {
-    enableIntrinsics: true,   // Attempt to use V8 intrinsics
-    forceOptimization: true,  // Force function optimization
-    monitorStderr: true       // Monitor stderr for V8 events
-  }
+    enableIntrinsics: true,
+    forceOptimization: true,
+    monitorStderr: true,
+  },
 };
 
-/**
- * Configuration validation schema
- */
 const CONFIG_SCHEMA = {
   profiling: {
     warmupRuns: { type: 'number', min: 1, max: 10000 },
@@ -60,12 +56,6 @@ const CONFIG_SCHEMA = {
   }
 };
 
-/**
- * Load configuration from a file path
- * Supports both JSON and JS module formats
- * @param {string} configPath - Path to configuration file
- * @returns {Promise<Object>} Parsed configuration object
- */
 export async function loadConfig(configPath) {
   if (!configPath || !existsSync(configPath)) {
     return {};
@@ -94,31 +84,14 @@ export async function loadConfig(configPath) {
   }
 }
 
-/**
- * Merge configuration from multiple sources with proper precedence
- * CLI options > user config > defaults
- * @param {Object} defaults - Default configuration
- * @param {Object} userConfig - User configuration from file
- * @param {Object} cliOptions - CLI options
- * @returns {Object} Merged configuration
- */
+// Precedence: defaults < userConfig < cliOptions.
 export function mergeConfig(defaults = DEFAULT_CONFIG, userConfig = {}, cliOptions = {}) {
-  const merged = JSON.parse(JSON.stringify(defaults)); // Deep clone defaults
-  
-  // Merge user config
+  const merged = JSON.parse(JSON.stringify(defaults));
   mergeDeep(merged, userConfig);
-  
-  // Merge CLI options (highest precedence)
   mergeDeep(merged, cliOptions);
-  
   return merged;
 }
 
-/**
- * Deep merge two objects
- * @param {Object} target - Target object to merge into
- * @param {Object} source - Source object to merge from
- */
 function mergeDeep(target, source) {
   for (const key in source) {
     if (source[key] && typeof source[key] === 'object' && !Array.isArray(source[key])) {
@@ -130,11 +103,6 @@ function mergeDeep(target, source) {
   }
 }
 
-/**
- * Validate configuration against schema with helpful error messages
- * @param {Object} config - Configuration to validate
- * @returns {Object} Validation result with isValid and errors
- */
 export function validateConfig(config) {
   const errors = [];
   
@@ -151,53 +119,35 @@ export function validateConfig(config) {
   };
 }
 
-/**
- * Validate a configuration section recursively
- * @param {Object} config - Configuration section to validate
- * @param {Object} schema - Schema section to validate against
- * @param {string} path - Current path for error reporting
- * @param {Array} errors - Array to collect errors
- */
 function validateSection(config, schema, path, errors) {
   for (const key in schema) {
     const currentPath = path ? `${path}.${key}` : key;
     const schemaRule = schema[key];
     const configValue = config[key];
-    
+
     if (typeof schemaRule === 'object' && !schemaRule.type) {
-      // Nested object
       if (config[key] && typeof config[key] === 'object') {
         validateSection(config[key], schemaRule, currentPath, errors);
       }
     } else {
-      // Validate individual property
       validateProperty(configValue, schemaRule, currentPath, errors);
     }
   }
 }
 
-/**
- * Validate individual property against schema rule
- * @param {*} value - Value to validate
- * @param {Object} rule - Schema rule
- * @param {string} path - Property path for error reporting
- * @param {Array} errors - Array to collect errors
- */
 function validateProperty(value, rule, path, errors) {
-  if (value === undefined) return; // Optional properties
-  
-  // Type validation
+  // Missing fields are allowed — defaults fill them in.
+  if (value === undefined) return;
+
   if (rule.type && typeof value !== rule.type) {
     errors.push(`${path}: Expected ${rule.type}, got ${typeof value}`);
     return;
   }
-  
-  // Enum validation
+
   if (rule.enum && !rule.enum.includes(value)) {
     errors.push(`${path}: Must be one of [${rule.enum.join(', ')}], got "${value}"`);
   }
-  
-  // Number range validation
+
   if (rule.type === 'number') {
     if (rule.min !== undefined && value < rule.min) {
       errors.push(`${path}: Must be at least ${rule.min}, got ${value}`);
@@ -206,18 +156,12 @@ function validateProperty(value, rule, path, errors) {
       errors.push(`${path}: Must be at most ${rule.max}, got ${value}`);
     }
   }
-  
-  // String validation
+
   if (rule.type === 'string' && rule.minLength && value.length < rule.minLength) {
     errors.push(`${path}: Must be at least ${rule.minLength} characters long`);
   }
 }
 
-/**
- * Generate helpful suggestions based on validation errors
- * @param {Array} errors - Validation errors
- * @returns {Array} Array of suggestions
- */
 function generateSuggestions(errors) {
   const suggestions = [];
   
@@ -237,14 +181,9 @@ function generateSuggestions(errors) {
     suggestions.push('Please check the configuration documentation for valid options');
   }
   
-  return [...new Set(suggestions)]; // Remove duplicates
+  return [...new Set(suggestions)];
 }
 
-/**
- * Find and load configuration file from common locations
- * @param {string} customPath - Custom config path from CLI
- * @returns {Promise<Object>} Configuration object
- */
 export async function findAndLoadConfig(customPath) {
   const configPaths = customPath ? [customPath] : [
     './profiler.config.js',
@@ -265,5 +204,5 @@ export async function findAndLoadConfig(customPath) {
     }
   }
   
-  return {}; // No config file found, use defaults
+  return {};
 }
