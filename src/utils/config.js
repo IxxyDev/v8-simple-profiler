@@ -27,7 +27,7 @@ export const DEFAULT_CONFIG = {
   v8: {
     enableIntrinsics: true,
     forceOptimization: true,
-    monitorStderr: true,
+    traceOptimization: true, // forward --trace-opt/--trace-deopt to the child
   },
 };
 
@@ -52,7 +52,7 @@ const CONFIG_SCHEMA = {
   v8: {
     enableIntrinsics: { type: 'boolean' },
     forceOptimization: { type: 'boolean' },
-    monitorStderr: { type: 'boolean' }
+    traceOptimization: { type: 'boolean' }
   }
 };
 

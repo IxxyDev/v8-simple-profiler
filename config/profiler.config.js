@@ -23,6 +23,6 @@ export default {
   v8: {
     enableIntrinsics: true,
     forceOptimization: true,
-    monitorStderr: true
+    traceOptimization: true
   }
 };

@@ -11,7 +11,7 @@ const benchmarks = [
 
 const config = {
   profiling: { warmupRuns: 10, testRuns: 1000, delayBetweenTests: 100 },
-  v8:        { enableIntrinsics: true, forceOptimization: true, monitorStderr: true },
+  v8:        { enableIntrinsics: true, forceOptimization: true, traceOptimization: true },
   output:    { format: 'console', verbose: false },
   analysis:  { outlierThreshold: 2, showInsights: true },
 };

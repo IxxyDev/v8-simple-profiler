@@ -65,7 +65,7 @@ async function runInChild(benchmark, config) {
 
   const execArgv = [];
   if (config.v8.enableIntrinsics) execArgv.push('--allow-natives-syntax');
-  if (config.v8.monitorStderr) execArgv.push('--trace-opt', '--trace-deopt');
+  if (config.v8.traceOptimization) execArgv.push('--trace-opt', '--trace-deopt');
 
   const child = fork(
     RUNNER_PATH,

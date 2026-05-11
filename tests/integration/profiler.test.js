@@ -8,7 +8,7 @@ import { createProfiler } from '../../src/core/profiler.js';
 // by spawn cost (~30–80ms). Keep run counts small to stay fast.
 const FAST_CONFIG = {
   profiling: { warmupRuns: 2, testRuns: 10, delayBetweenTests: 0 },
-  v8: { enableIntrinsics: true, forceOptimization: true, monitorStderr: true },
+  v8: { enableIntrinsics: true, forceOptimization: true, traceOptimization: true },
   output: { format: 'console', verbose: false },
   analysis: { outlierThreshold: 2, showInsights: false },
 };
