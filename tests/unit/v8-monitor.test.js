@@ -26,7 +26,7 @@ function makeBenchmark() {
 describe('V8 monitor (intrinsics)', () => {
   beforeEach(() => clearOptimizationData());
 
-  it('isV8IntrinsicsAvailable returns a boolean and matches harness flag', () => {
+  it('should return a boolean from isV8IntrinsicsAvailable that matches harness flag', () => {
     expect(typeof hasIntrinsics).toBe('boolean');
     // The vitest config passes --allow-natives-syntax to the fork pool, so
     // intrinsics should be available in this test environment.
@@ -71,7 +71,7 @@ describe('V8 monitor (intrinsics)', () => {
 describe('V8 trace parsing', () => {
   beforeEach(() => clearOptimizationData());
 
-  it('parses a complete optimization line', () => {
+  it('should parse a complete optimization line', () => {
     ingestTraceChunkForTesting(
       '[marking 0x22bac9112da1 <JSFunction hotLoop (sfi = 0x157c3d9067b1)> for optimization to MAGLEV, ConcurrencyMode::kConcurrent, reason: hot and stable]\n'
     );
@@ -81,14 +81,14 @@ describe('V8 trace parsing', () => {
     expect(info.reasons[0]).toContain('hot and stable');
   });
 
-  it('parses a complete deopt line', () => {
+  it('should parse a complete deopt line', () => {
     ingestTraceChunkForTesting(
       '[bailout (kind: deopt-eager, reason: wrong map): begin. deoptimizing 0x134c0d6165b9 <JSFunction next (sfi = 0x2f28637093c9)>, 0x3d4fef2817c9 <Code MAGLEV>, opt id 2, bytecode offset 3, deopt exit 0, FP to SP delta 32, caller SP 0x00016d8cdb38, pc 0x000118f02814]\n'
     );
     expect(deoptedFunctions.has('next')).toBe(true);
   });
 
-  it('reassembles a line split across multiple chunks', () => {
+  it('should reassemble a line split across multiple chunks', () => {
     // Chunk boundary mid-line — must not lose the event.
     ingestTraceChunkForTesting('[marking 0x1 <JSFunction split (sfi = 0x2)> for optimi');
     ingestTraceChunkForTesting('zation to TURBOFAN, ConcurrencyMode::kConcurrent, reason: hot and stable]\n');
@@ -96,7 +96,7 @@ describe('V8 trace parsing', () => {
     expect(optimizationInfo.get('split').attempts).toBe(1);
   });
 
-  it('parses multiple events arriving in one chunk', () => {
+  it('should parse multiple events arriving in one chunk', () => {
     ingestTraceChunkForTesting(
       '[marking 0x1 <JSFunction first (sfi = 0x2)> for optimization to MAGLEV, ConcurrencyMode::kConcurrent, reason: hot and stable]\n' +
       '[marking 0x3 <JSFunction second (sfi = 0x4)> for optimization to MAGLEV, ConcurrencyMode::kConcurrent, reason: hot and stable]\n'
@@ -105,7 +105,7 @@ describe('V8 trace parsing', () => {
     expect(optimizationInfo.has('second')).toBe(true);
   });
 
-  it('parses a manually-triggered optimization line (no reason field)', () => {
+  it('should parse a manually-triggered optimization line (no reason field)', () => {
     ingestTraceChunkForTesting(
       '[manually marking 0x274bf386b5a1 <JSFunction hotLoop (sfi = 0x274bf3869381)> for optimization to TURBOFAN_JS, ConcurrencyMode::kSynchronous]\n'
     );
@@ -116,7 +116,7 @@ describe('V8 trace parsing', () => {
     expect(info.reasons[0]).toBe('manual');
   });
 
-  it('ignores anonymous JSFunction events (no name to attribute)', () => {
+  it('should ignore anonymous JSFunction events (no name to attribute)', () => {
     ingestTraceChunkForTesting(
       '[marking 0x1 <JSFunction (sfi = 0x2)> for optimization to MAGLEV, ConcurrencyMode::kConcurrent, reason: hot and stable]\n'
     );

@@ -74,6 +74,7 @@ async function runInChild(benchmark, config) {
       benchmark.exportName,
       String(config.profiling.warmupRuns),
       String(config.profiling.testRuns),
+      String(config.v8.forceOptimization),
     ],
     {
       execArgv,
@@ -100,15 +101,21 @@ async function runInChild(benchmark, config) {
     throw err;
   }
 
-  const { timings, failed = 0, optimizationStatus, nodeVersion, v8Version } = ipcMessage;
+  const { timings, failed = 0, optimizationStatus, resolvedName, forced, nodeVersion, v8Version } = ipcMessage;
 
   const stats = calculateStats(timings);
   const outliers = detectOutliers(timings, config.analysis.outlierThreshold);
   const reliability = assessReliability(stats);
 
-  // Merge intrinsic status (point-in-time, from child) with trace counters
-  // (cumulative, parsed from stdout in this process).
-  const traceInfo = optimizationInfo.get(benchmark.exportName);
+  // V8 keys trace records by the function's real .name. For default exports
+  // benchmark.exportName is the sentinel '__default__' which never appears in
+  // the trace stream — we'd otherwise report attempts:0 for any default export.
+  // Anonymous functions (fn.name === '') still can't be attributed; surface
+  // that explicitly so consumers can distinguish "didn't optimize" from
+  // "can't tell".
+  const lookupName = resolvedName || benchmark.exportName;
+  const traceInfo = optimizationInfo.get(lookupName);
+  const traceAttribution = resolvedName === '' ? 'anonymous-skipped' : 'by-name';
   const optimization = {
     ...optimizationStatus,
     attempts: traceInfo?.attempts ?? 0,
@@ -116,8 +123,10 @@ async function runInChild(benchmark, config) {
     tiers: traceInfo?.tiers ?? [],
     deoptimized:
       (optimizationStatus && optimizationStatus.deoptimized) ||
-      deoptedFunctions.has(benchmark.exportName),
+      deoptedFunctions.has(lookupName),
     deoptReasons: traceInfo?.deoptReasons ?? [],
+    traceAttribution,
+    forced: forced ?? config.v8.forceOptimization,
   };
 
   return {

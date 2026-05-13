@@ -12,10 +12,14 @@
 //                  single `result` or `error` frame, then drains and exits.
 //
 // argv (positional, set by parent):
-//   [3] benchmarkPath  absolute path to the benchmark module
-//   [4] exportName     named export to run, or "__default__"
+//   [3] benchmarkPath     absolute path to the benchmark module
+//   [4] exportName        named export to run, or "__default__"
 //   [5] warmupRuns
 //   [6] testRuns
+//   [7] forceOptimization "true" | "false" — when "false", skip the manual
+//                         %PrepareFunctionForOptimization / %OptimizeOnNextCall
+//                         handshake so the CLI's --no-optimization flag has an
+//                         observable effect.
 import { performance } from 'node:perf_hooks';
 import { pathToFileURL } from 'node:url';
 import {
@@ -32,7 +36,7 @@ function send(msg) {
 }
 
 async function main() {
-  const [, , benchmarkPath, exportName, warmupRunsStr, testRunsStr] = process.argv;
+  const [, , benchmarkPath, exportName, warmupRunsStr, testRunsStr, forceOptStr] = process.argv;
   if (!benchmarkPath || !exportName) {
     send({ type: 'error', message: 'child-runner: missing required argv (path, exportName)' });
     process.exit(2);
@@ -44,6 +48,8 @@ async function main() {
     send({ type: 'error', message: `child-runner: invalid warmup/test counts (${warmupRunsStr}, ${testRunsStr})` });
     process.exit(2);
   }
+
+  const forceOptimization = forceOptStr === 'true';
 
   let mod;
   try {
@@ -60,10 +66,11 @@ async function main() {
   }
 
   const intrinsicsAvailable = isV8IntrinsicsAvailable();
+  const willForceOptimize = intrinsicsAvailable && forceOptimization;
 
   // Order matters: prepare must precede any call to fn that the optimizer can
   // observe, or V8 may reject the later %OptimizeFunctionOnNextCall.
-  if (intrinsicsAvailable) prepareForOptimization(fn);
+  if (willForceOptimize) prepareForOptimization(fn);
 
   try {
     for (let i = 0; i < warmupRuns; i++) await fn();
@@ -72,7 +79,7 @@ async function main() {
     process.exit(1);
   }
 
-  if (intrinsicsAvailable) {
+  if (willForceOptimize) {
     optimizeOnNextCall(fn);
     try {
       // Trigger compilation while the optimizer still has fresh feedback.
@@ -112,6 +119,10 @@ async function main() {
     timings: validTimings,
     failed,
     optimizationStatus,
+    // V8's --trace-opt records key the function by its real .name; for default
+    // exports the parent can't derive this from exportName ('__default__').
+    resolvedName: typeof fn.name === 'string' ? fn.name : '',
+    forced: forceOptimization,
     nodeVersion: process.version,
     v8Version: process.versions.v8,
   });

@@ -134,6 +134,58 @@ export function compareResults(baseline, comparison) {
   };
 }
 
+// Static two-sided critical t-values for df ∈ [1,30] at 90/95/99%. Pre-computed
+// from the t-distribution CDF; pulling a stats library for one lookup is
+// disproportionate at Phase 1 scope.
+const T_TABLE = [
+  null,
+  { 0.90: 6.3138,  0.95: 12.7062, 0.99: 63.6567 },
+  { 0.90: 2.9200,  0.95: 4.3027,  0.99: 9.9248  },
+  { 0.90: 2.3534,  0.95: 3.1824,  0.99: 5.8409  },
+  { 0.90: 2.1318,  0.95: 2.7764,  0.99: 4.6041  },
+  { 0.90: 2.0150,  0.95: 2.5706,  0.99: 4.0321  },
+  { 0.90: 1.9432,  0.95: 2.4469,  0.99: 3.7074  },
+  { 0.90: 1.8946,  0.95: 2.3646,  0.99: 3.4995  },
+  { 0.90: 1.8595,  0.95: 2.3060,  0.99: 3.3554  },
+  { 0.90: 1.8331,  0.95: 2.2622,  0.99: 3.2498  },
+  { 0.90: 1.8125,  0.95: 2.2281,  0.99: 3.1693  },
+  { 0.90: 1.7959,  0.95: 2.2010,  0.99: 3.1058  },
+  { 0.90: 1.7823,  0.95: 2.1788,  0.99: 3.0545  },
+  { 0.90: 1.7709,  0.95: 2.1604,  0.99: 3.0123  },
+  { 0.90: 1.7613,  0.95: 2.1448,  0.99: 2.9768  },
+  { 0.90: 1.7531,  0.95: 2.1314,  0.99: 2.9467  },
+  { 0.90: 1.7459,  0.95: 2.1199,  0.99: 2.9208  },
+  { 0.90: 1.7396,  0.95: 2.1098,  0.99: 2.8982  },
+  { 0.90: 1.7341,  0.95: 2.1009,  0.99: 2.8784  },
+  { 0.90: 1.7291,  0.95: 2.0930,  0.99: 2.8609  },
+  { 0.90: 1.7247,  0.95: 2.0860,  0.99: 2.8453  },
+  { 0.90: 1.7207,  0.95: 2.0796,  0.99: 2.8314  },
+  { 0.90: 1.7171,  0.95: 2.0739,  0.99: 2.8188  },
+  { 0.90: 1.7139,  0.95: 2.0687,  0.99: 2.8073  },
+  { 0.90: 1.7109,  0.95: 2.0639,  0.99: 2.7969  },
+  { 0.90: 1.7081,  0.95: 2.0595,  0.99: 2.7874  },
+  { 0.90: 1.7056,  0.95: 2.0555,  0.99: 2.7787  },
+  { 0.90: 1.7033,  0.95: 2.0518,  0.99: 2.7707  },
+  { 0.90: 1.7011,  0.95: 2.0484,  0.99: 2.7633  },
+  { 0.90: 1.6991,  0.95: 2.0452,  0.99: 2.7564  },
+  { 0.90: 1.6973,  0.95: 2.0423,  0.99: 2.7500  },
+];
+
+const Z_ASYMPTOTE = { 0.90: 1.6449, 0.95: 1.9600, 0.99: 2.5758 };
+
+// Welch–Satterthwaite returns non-integer df; floor is conservative because the
+// critical value at lower df is strictly larger (wider rejection region).
+export function tCriticalTwoSided(df, level) {
+  const z = Z_ASYMPTOTE[level];
+  if (z === undefined) {
+    throw new Error(`tCriticalTwoSided: unsupported level ${level} (use 0.90, 0.95, or 0.99)`);
+  }
+  const intDf = Math.floor(df);
+  if (intDf < 1) return Infinity;
+  if (intDf > 30) return z;
+  return T_TABLE[intDf][level];
+}
+
 // Welch's unequal-variances t-test. Unlike pooled Student, this does not
 // assume var1 == var2 — a safer default for microbenchmark timings, where
 // fast-path and slow-path samples almost never share dispersion.
@@ -166,11 +218,23 @@ function calculateSignificance(baselineStats, comparisonStats) {
     Math.pow(sampleVar2 / n2, 2) / (n2 - 1);
   const degreesOfFreedom = dfDenominator === 0 ? 0 : dfNumerator / dfDenominator;
 
+  const crit95 = tCriticalTwoSided(degreesOfFreedom, 0.95);
+  const crit99 = tCriticalTwoSided(degreesOfFreedom, 0.99);
+  const crit90 = tCriticalTwoSided(degreesOfFreedom, 0.90);
+
+  const significant = tStatistic > crit95;
+  const confidenceLevel =
+    tStatistic > crit99 ? 99 :
+    tStatistic > crit95 ? 95 :
+    tStatistic > crit90 ? 90 : 0;
+
   return {
     tStatistic: Number(tStatistic.toFixed(4)),
     degreesOfFreedom: Number(degreesOfFreedom.toFixed(2)),
-    significant: tStatistic > 2.0,
-    confidenceLevel: tStatistic > 2.576 ? 99 : tStatistic > 1.96 ? 95 : tStatistic > 1.645 ? 90 : 0
+    significant,
+    confidenceLevel,
+    criticalValue: Number(crit95.toFixed(4)),
+    criticalLevel: 'two-sided-95',
   };
 }
 

@@ -15,7 +15,7 @@ describe('loadBenchmarks', () => {
     await rm(dir, { recursive: true, force: true });
   });
 
-  it('returns descriptors {name, path, exportName} for every function export', async () => {
+  it('should return descriptors {name, path, exportName} for every function export', async () => {
     const file = join(dir, 'bench.js');
     await writeFile(file, `
       export function a() { return 1; }
@@ -29,7 +29,7 @@ describe('loadBenchmarks', () => {
     expect(benchmarks.find(b => b.name === 'a').exportName).toBe('a');
   });
 
-  it('returns a single descriptor when path#name is given', async () => {
+  it('should return a single descriptor when path#name is given', async () => {
     const file = join(dir, 'bench.js');
     await writeFile(file, `
       export function a() { return 'a'; }
@@ -40,19 +40,19 @@ describe('loadBenchmarks', () => {
     expect(benchmarks[0]).toMatchObject({ name: 'b', exportName: 'b', path: file });
   });
 
-  it('throws a helpful error when the named export is missing', async () => {
+  it('should throw a helpful error when the named export is missing', async () => {
     const file = join(dir, 'bench.js');
     await writeFile(file, `export function a(){}`);
     await expect(loadBenchmarks([`${file}#missing`]))
       .rejects.toThrow(/missing.*is not a function/);
   });
 
-  it('throws when the file does not exist', async () => {
+  it('should throw when the file does not exist', async () => {
     await expect(loadBenchmarks([join(dir, 'nope.js')]))
       .rejects.toThrow(/not found/);
   });
 
-  it('reports the default export under the name "default" with a sentinel', async () => {
+  it('should report the default export under the name "default" with a sentinel', async () => {
     const file = join(dir, 'bench.js');
     await writeFile(file, `
       export default function () { return 'd'; }
@@ -64,7 +64,7 @@ describe('loadBenchmarks', () => {
     expect(byName.named.exportName).toBe('named');
   });
 
-  it('merges descriptors from multiple files', async () => {
+  it('should merge descriptors from multiple files', async () => {
     const a = join(dir, 'a.js');
     const b = join(dir, 'b.js');
     await writeFile(a, `export function fromA(){return 'a';}`);
@@ -75,7 +75,7 @@ describe('loadBenchmarks', () => {
     expect(benchmarks.find(x => x.name === 'fromB').path).toBe(b);
   });
 
-  it('falls back to example/hot.js when no specs given', async () => {
+  it('should fall back to example/hot.js when no specs given', async () => {
     const benchmarks = await loadBenchmarks([]);
     expect(benchmarks.length).toBeGreaterThan(0);
     expect(benchmarks.every(b => typeof b.path === 'string')).toBe(true);
@@ -84,19 +84,19 @@ describe('loadBenchmarks', () => {
 });
 
 describe('collectBenchmarkSpecs', () => {
-  it('splits comma-separated values', () => {
+  it('should split comma-separated values', () => {
     const acc = collectBenchmarkSpecs('a.js, b.js , c.js#x', []);
     expect(acc).toEqual(['a.js', 'b.js', 'c.js#x']);
   });
 
-  it('accumulates across repeated invocations (commander pattern)', () => {
+  it('should accumulate across repeated invocations (commander pattern)', () => {
     let acc = [];
     acc = collectBenchmarkSpecs('a.js', acc);
     acc = collectBenchmarkSpecs('b.js#fn', acc);
     expect(acc).toEqual(['a.js', 'b.js#fn']);
   });
 
-  it('drops empty fragments from sloppy input', () => {
+  it('should drop empty fragments from sloppy input', () => {
     expect(collectBenchmarkSpecs(',,a.js,', [])).toEqual(['a.js']);
   });
 });
