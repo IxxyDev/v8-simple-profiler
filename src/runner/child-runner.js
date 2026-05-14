@@ -31,6 +31,28 @@ import {
 
 const DEFAULT_EXPORT_SENTINEL = '__default__';
 
+// Calibration target: pick the smallest batch whose total time crosses this
+// threshold so per-call timings stay above the `performance.now()` resolution
+// floor (~1µs on most platforms).
+const TARGET_BATCH_MS = 1;
+const MAX_BATCH = 1 << 20;
+
+// Anti-DCE sink. V8 can constant-fold or eliminate calls whose return value is
+// never observed; XOR-ing into a module-level int that we send back over IPC
+// forces every iteration's result to escape.
+let __sink = 0;
+
+function consume(v) {
+  switch (typeof v) {
+    case 'number': return (v | 0) ^ 0x9e3779b1;
+    case 'string': return (v.length | 0) ^ 0x85ebca6b;
+    case 'boolean': return v ? 0x27d4eb2f : 0xc2b2ae35;
+    case 'object': return v === null ? 0x165667b1 : 0xd3a2646c;
+    case 'undefined': return 0x52dce729;
+    default: return 0x38ebc6af;
+  }
+}
+
 function send(msg) {
   if (typeof process.send === 'function') process.send(msg);
 }
@@ -65,6 +87,9 @@ async function main() {
     process.exit(1);
   }
 
+  const isAsync = fn.constructor && fn.constructor.name === 'AsyncFunction';
+  const executionMode = isAsync ? 'async' : 'sync';
+
   const intrinsicsAvailable = isV8IntrinsicsAvailable();
   const willForceOptimize = intrinsicsAvailable && forceOptimization;
 
@@ -73,7 +98,11 @@ async function main() {
   if (willForceOptimize) prepareForOptimization(fn);
 
   try {
-    for (let i = 0; i < warmupRuns; i++) await fn();
+    if (isAsync) {
+      for (let i = 0; i < warmupRuns; i++) __sink ^= consume(await fn());
+    } else {
+      for (let i = 0; i < warmupRuns; i++) __sink ^= consume(fn());
+    }
   } catch (err) {
     send({ type: 'error', message: `Warmup failed: ${err.message}`, stack: err.stack });
     process.exit(1);
@@ -83,24 +112,55 @@ async function main() {
     optimizeOnNextCall(fn);
     try {
       // Trigger compilation while the optimizer still has fresh feedback.
-      await fn();
+      if (isAsync) __sink ^= consume(await fn());
+      else __sink ^= consume(fn());
     } catch (err) {
       send({ type: 'error', message: `Optimization trigger failed: ${err.message}` });
       process.exit(1);
     }
   }
 
-  // Pre-allocate to avoid array growth allocations inside the hot loop.
+  let batchSize = 1;
+  try {
+    while (batchSize < MAX_BATCH) {
+      const t0 = performance.now();
+      if (isAsync) {
+        for (let i = 0; i < batchSize; i++) __sink ^= consume(await fn());
+      } else {
+        for (let i = 0; i < batchSize; i++) __sink ^= consume(fn());
+      }
+      const elapsed = performance.now() - t0;
+      if (elapsed >= TARGET_BATCH_MS) break;
+      batchSize <<= 1;
+    }
+  } catch (err) {
+    send({ type: 'error', message: `Calibration failed: ${err.message}`, stack: err.stack });
+    process.exit(1);
+  }
+
   const timings = new Array(testRuns);
   let failed = 0;
-  for (let i = 0; i < testRuns; i++) {
-    const start = performance.now();
-    try {
-      await fn();
-      timings[i] = performance.now() - start;
-    } catch {
-      timings[i] = Number.NaN;
-      failed++;
+  if (isAsync) {
+    for (let i = 0; i < testRuns; i++) {
+      const start = performance.now();
+      try {
+        for (let j = 0; j < batchSize; j++) __sink ^= consume(await fn());
+        timings[i] = (performance.now() - start) / batchSize;
+      } catch {
+        timings[i] = Number.NaN;
+        failed++;
+      }
+    }
+  } else {
+    for (let i = 0; i < testRuns; i++) {
+      const start = performance.now();
+      try {
+        for (let j = 0; j < batchSize; j++) __sink ^= consume(fn());
+        timings[i] = (performance.now() - start) / batchSize;
+      } catch {
+        timings[i] = Number.NaN;
+        failed++;
+      }
     }
   }
 
@@ -125,6 +185,10 @@ async function main() {
     forced: forceOptimization,
     nodeVersion: process.version,
     v8Version: process.versions.v8,
+    executionMode,
+    batchSize,
+    mode: batchSize === 1 ? 'per-call' : 'per-batch',
+    sinkChecksum: __sink,
   });
 
   // Give Node a tick to flush the IPC message before exiting.

@@ -153,6 +153,95 @@ describe('createProfiler / runBenchmarks (child-process integration)', () => {
     expect(result.optimization.forced).toBe(true);
   });
 
+  it('should report executionMode="sync" for a synchronous benchmark', async () => {
+    const file = join(dir, 'bench.js');
+    await writeFile(file, `
+      export function syncFn() {
+        let s = 0;
+        for (let i = 0; i < 2000; i++) s += i;
+        return s;
+      }
+    `);
+
+    const profiler = await createProfiler(FAST_CONFIG);
+    const [result] = await profiler.runBenchmarks([
+      { name: 'syncFn', path: file, exportName: 'syncFn' },
+    ]);
+
+    expect(result.metadata.executionMode).toBe('sync');
+    expect(result.timing.mean).toBeGreaterThan(0);
+  });
+
+  it('should report executionMode="async" for an async benchmark', async () => {
+    const file = join(dir, 'bench.js');
+    await writeFile(file, `
+      export async function asyncFn() {
+        let s = 0;
+        for (let i = 0; i < 2000; i++) s += i;
+        return s;
+      }
+    `);
+
+    const profiler = await createProfiler(FAST_CONFIG);
+    const [result] = await profiler.runBenchmarks([
+      { name: 'asyncFn', path: file, exportName: 'asyncFn' },
+    ]);
+
+    expect(result.metadata.executionMode).toBe('async');
+    expect(result.timing.mean).toBeGreaterThan(0);
+  });
+
+  it('should record a non-zero mean and a sinkChecksum for a noop benchmark', async () => {
+    const file = join(dir, 'bench.js');
+    await writeFile(file, `export function noop() {}`);
+
+    const profiler = await createProfiler(FAST_CONFIG);
+    const [result] = await profiler.runBenchmarks([
+      { name: 'noop', path: file, exportName: 'noop' },
+    ]);
+
+    expect(result.timing.mean).toBeGreaterThan(0);
+    expect(typeof result.metadata.sinkChecksum).toBe('number');
+  });
+
+  it('should auto-calibrate batchSize > 1 for a sub-microsecond benchmark', async () => {
+    const file = join(dir, 'bench.js');
+    await writeFile(file, `export function tinyFn() { return 1 + 1; }`);
+
+    const profiler = await createProfiler(FAST_CONFIG);
+    const [result] = await profiler.runBenchmarks([
+      { name: 'tinyFn', path: file, exportName: 'tinyFn' },
+    ]);
+
+    expect(result.metadata.batchSize).toBeGreaterThan(1);
+    expect(result.metadata.mode).toBe('per-batch');
+    expect(result.timing.count).toBe(10);
+  });
+
+  it('should pin batchSize to 1 for a benchmark whose single call exceeds the target', async () => {
+    // 200k tight-loop iterations JITs to sub-ms on modern CPUs; nest two loops
+    // so per-call time comfortably exceeds TARGET_BATCH_MS regardless of host.
+    const file = join(dir, 'bench.js');
+    await writeFile(file, `
+      export function slowFn() {
+        let s = 0;
+        for (let k = 0; k < 50; k++) {
+          for (let i = 0; i < 200000; i++) s += i;
+        }
+        return s;
+      }
+    `);
+
+    const profiler = await createProfiler(FAST_CONFIG);
+    const [result] = await profiler.runBenchmarks([
+      { name: 'slowFn', path: file, exportName: 'slowFn' },
+    ]);
+
+    expect(result.metadata.batchSize).toBe(1);
+    expect(result.metadata.mode).toBe('per-call');
+    expect(result.timing.count).toBe(10);
+  });
+
   it('should isolate trace counters between benchmarks (no bleed-through)', async () => {
     const file = join(dir, 'bench.js');
     await writeFile(file, `

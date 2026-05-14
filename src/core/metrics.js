@@ -25,18 +25,21 @@ export function calculateStats(measurements) {
   const p75 = percentile(sorted, 75);
   const p25 = percentile(sorted, 25);
 
+  // Precision: per-call timings from batched measurement can be sub-µs; round
+  // to 7 decimals (sub-ns) so a fast (or noop) benchmark doesn't underflow to
+  // 0.0000ms after toFixed.
   return {
-    mean: Number(mean.toFixed(4)),
-    median: Number(median.toFixed(4)),
-    min: Number(min.toFixed(4)),
-    max: Number(max.toFixed(4)),
-    stdDev: Number(stdDev.toFixed(4)),
-    variance: Number(variance.toFixed(4)),
-    p25: Number(p25.toFixed(4)),
-    p75: Number(p75.toFixed(4)),
-    p90: Number(p90.toFixed(4)),
-    p95: Number(p95.toFixed(4)),
-    p99: Number(p99.toFixed(4)),
+    mean: Number(mean.toFixed(7)),
+    median: Number(median.toFixed(7)),
+    min: Number(min.toFixed(7)),
+    max: Number(max.toFixed(7)),
+    stdDev: Number(stdDev.toFixed(7)),
+    variance: Number(variance.toFixed(7)),
+    p25: Number(p25.toFixed(7)),
+    p75: Number(p75.toFixed(7)),
+    p90: Number(p90.toFixed(7)),
+    p95: Number(p95.toFixed(7)),
+    p99: Number(p99.toFixed(7)),
     count: length
   };
 }

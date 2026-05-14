@@ -101,7 +101,19 @@ async function runInChild(benchmark, config) {
     throw err;
   }
 
-  const { timings, failed = 0, optimizationStatus, resolvedName, forced, nodeVersion, v8Version } = ipcMessage;
+  const {
+    timings,
+    failed = 0,
+    optimizationStatus,
+    resolvedName,
+    forced,
+    nodeVersion,
+    v8Version,
+    executionMode,
+    batchSize,
+    mode,
+    sinkChecksum,
+  } = ipcMessage;
 
   const stats = calculateStats(timings);
   const outliers = detectOutliers(timings, config.analysis.outlierThreshold);
@@ -140,6 +152,10 @@ async function runInChild(benchmark, config) {
       timestamp: new Date().toISOString(),
       nodeVersion,
       v8Version,
+      executionMode,
+      batchSize,
+      mode,
+      sinkChecksum,
     },
   };
 }
