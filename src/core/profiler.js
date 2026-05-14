@@ -82,8 +82,11 @@ async function runInChild(benchmark, config) {
     }
   );
 
-  readline.createInterface({ input: child.stdout }).on('line', parseTraceLine);
-  readline.createInterface({ input: child.stderr }).on('line', parseTraceLine);
+  const handleLine = line => {
+    if (isV8TraceLine(line)) parseTraceLine(line);
+  };
+  readline.createInterface({ input: child.stdout }).on('line', handleLine);
+  readline.createInterface({ input: child.stderr }).on('line', handleLine);
 
   const ipcMessage = await new Promise((res, rej) => {
     let received = null;
@@ -158,6 +161,18 @@ async function runInChild(benchmark, config) {
       sinkChecksum,
     },
   };
+}
+
+// V8 --trace-opt / --trace-deopt records always open with one of these
+// prefixes. Filtering at the readline boundary stops user console.log output
+// (which shares stdout/stderr with V8's trace stream) from being misread as
+// optimization events when it happens to contain `<JSFunction …>`.
+function isV8TraceLine(line) {
+  return (
+    line.startsWith('[marking ') ||
+    line.startsWith('[manually marking ') ||
+    line.startsWith('[bailout ')
+  );
 }
 
 function mergeConfig(defaults, override) {

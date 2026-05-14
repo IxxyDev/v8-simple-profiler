@@ -3,6 +3,11 @@ import { writeFile, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createProfiler, DEFAULT_EXPORT_SENTINEL } from '../../src/core/profiler.js';
+import {
+  optimizationInfo,
+  clearOptimizationData,
+  parseTraceLine,
+} from '../../src/core/v8-monitor.js';
 
 // Each test spawns a child Node process via fork(), so timings are dominated
 // by spawn cost (~30–80ms). Keep run counts small to stay fast.
@@ -261,5 +266,38 @@ describe('createProfiler / runBenchmarks (child-process integration)', () => {
     expect(results[0].optimization.attempts).toBeGreaterThanOrEqual(1);
     expect(results[1].optimization.attempts).toBeGreaterThanOrEqual(1);
     expect(results[0].optimization.reasons.every(r => typeof r === 'string')).toBe(true);
+  });
+
+  it('should ignore user console.log lines that embed V8-shaped trace records without the trace prefix', async () => {
+    // The OPT_PATTERN regex matches its tokens anywhere in a line, so a user
+    // log that *contains* a V8-shaped record (but does not begin with one) is
+    // enough to fool the parser before the boundary filter is in place.
+    const file = join(dir, 'bench.js');
+    await writeFile(file, `
+      export function realFn() {
+        console.log("debug: [marking 0x123 <JSFunction phantomFn (sfi = 0x42)> for optimization to TURBOFAN_JS, ConcurrencyMode::kSynchronous]");
+        let s = 0; for (let i = 0; i < 3000; i++) s += i;
+        return s;
+      }
+    `);
+
+    clearOptimizationData();
+    const profiler = await createProfiler(FAST_CONFIG);
+    await profiler.runBenchmarks([
+      { name: 'realFn', path: file, exportName: 'realFn' },
+    ]);
+
+    expect(optimizationInfo.has('phantomFn')).toBe(false);
+  });
+
+  it('should still parse real V8 trace lines through parseTraceLine', () => {
+    clearOptimizationData();
+    parseTraceLine('[marking 0x123 <JSFunction realName (sfi = 0x42)> for optimization to TURBOFAN_JS, ConcurrencyMode::kSynchronous]');
+    parseTraceLine('[manually marking 0x123 <JSFunction manualName (sfi = 0x42)> for optimization to TURBOFAN_JS, ConcurrencyMode::kSynchronous]');
+    parseTraceLine('[bailout (kind: deopt-soft, reason: Insufficient type feedback): begin. deoptimizing <JSFunction bailName (sfi = 0x42)>]');
+
+    expect(optimizationInfo.get('realName')?.attempts).toBe(1);
+    expect(optimizationInfo.get('manualName')?.attempts).toBe(1);
+    expect(optimizationInfo.get('bailName')?.deoptReasons).toContain('Insufficient type feedback');
   });
 });
