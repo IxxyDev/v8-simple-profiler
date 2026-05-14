@@ -28,6 +28,10 @@ export function calculateStats(measurements) {
   // Precision: per-call timings from batched measurement can be sub-µs; round
   // to 7 decimals (sub-ns) so a fast (or noop) benchmark doesn't underflow to
   // 0.0000ms after toFixed.
+  // Coefficient of variation: stable dispersion-per-unit-mean. Guard against
+  // mean=0 (e.g. all-zero stream) so consumers see 0 instead of NaN/Infinity.
+  const cov = mean === 0 ? 0 : stdDev / mean;
+
   return {
     mean: Number(mean.toFixed(7)),
     median: Number(median.toFixed(7)),
@@ -35,6 +39,7 @@ export function calculateStats(measurements) {
     max: Number(max.toFixed(7)),
     stdDev: Number(stdDev.toFixed(7)),
     variance: Number(variance.toFixed(7)),
+    cov: Number(cov.toFixed(7)),
     p25: Number(p25.toFixed(7)),
     p75: Number(p75.toFixed(7)),
     p90: Number(p90.toFixed(7)),
@@ -57,24 +62,51 @@ function percentile(sortedArray, p) {
   return sortedArray[lower] * (1 - weight) + sortedArray[upper] * weight;
 }
 
+// 1.4826 is the consistency constant making MAD a stdDev-equivalent estimator
+// for Gaussian data, so a user-facing threshold of "N" keeps its "N stdDevs"
+// intuition while being robust to the very outliers we're trying to flag.
+const MAD_CONSISTENCY = 1.4826;
+
+function medianOfSorted(sorted) {
+  const n = sorted.length;
+  if (n === 0) return 0;
+  return n % 2 === 0
+    ? (sorted[n / 2 - 1] + sorted[n / 2]) / 2
+    : sorted[Math.floor(n / 2)];
+}
+
+function median(values) {
+  return medianOfSorted([...values].sort((a, b) => a - b));
+}
+
 export function detectOutliers(measurements, threshold = 2) {
   if (!measurements || measurements.length === 0) {
     return [];
   }
 
-  const stats = calculateStats(measurements);
+  const med = median(measurements);
+  const absDeviations = measurements.map(v => Math.abs(v - med));
+  const mad = median(absDeviations);
+
+  // mad=0 means no defined dispersion (all equal or degenerate); there is no
+  // robust scale against which to flag outliers.
+  if (mad === 0) {
+    return [];
+  }
+
+  const scale = MAD_CONSISTENCY * mad;
   const outliers = [];
 
   for (let i = 0; i < measurements.length; i++) {
     const measurement = measurements[i];
-    const zScore = Math.abs((measurement - stats.mean) / stats.stdDev);
+    const distance = Math.abs(measurement - med) / scale;
 
-    if (zScore > threshold) {
+    if (distance > threshold) {
       outliers.push({
         index: i,
         value: measurement,
-        zScore: Number(zScore.toFixed(2)),
-        type: measurement > stats.mean ? 'high' : 'low'
+        distance: Number(distance.toFixed(2)),
+        type: measurement > med ? 'high' : 'low'
       });
     }
   }
@@ -82,6 +114,12 @@ export function detectOutliers(measurements, threshold = 2) {
   return outliers;
 }
 
+// Two-axis reliability:
+//   cov        = stdDev / mean         — measurement stability (per-sample)
+//   rseOfMean  = (stdDev/√n) / mean    — precision of the *mean* estimate
+// Old code keyed off rseOfMean alone, which shrinks as √n and produced
+// "high reliability" labels on streams with cov ≈ 1.5 at n=1000. Both axes
+// must pass for 'high'.
 export function assessReliability(stats) {
   const { mean, stdDev, count } = stats;
 
@@ -89,17 +127,20 @@ export function assessReliability(stats) {
     return 'insufficient';
   }
 
-  const coefficientOfVariation = stdDev / mean;
-  const standardError = stdDev / Math.sqrt(count);
-  const relativeError = (standardError / mean) * 100;
-
-  if (relativeError < 5) {
-    return 'high';
-  } else if (relativeError < 15) {
-    return 'medium';
-  } else {
+  if (mean === 0) {
     return 'low';
   }
+
+  const cov = stdDev / mean;
+  const rseOfMean = (stdDev / Math.sqrt(count)) / mean;
+
+  if (rseOfMean < 0.05 && cov < 0.10) {
+    return 'high';
+  }
+  if (rseOfMean < 0.15 && cov < 0.30) {
+    return 'medium';
+  }
+  return 'low';
 }
 
 export function compareResults(baseline, comparison) {
@@ -115,6 +156,10 @@ export function compareResults(baseline, comparison) {
   const speedupRatio = baselineMean / comparisonMean;
 
   const significance = calculateSignificance(baseline.timing, comparison.timing);
+  significance.mannWhitney = rankSumTest(
+    baseline.timing.measurements,
+    comparison.timing.measurements,
+  );
 
   return {
     baseline: {
@@ -238,6 +283,70 @@ function calculateSignificance(baselineStats, comparisonStats) {
     confidenceLevel,
     criticalValue: Number(crit95.toFixed(4)),
     criticalLevel: 'two-sided-95',
+  };
+}
+
+// Mann–Whitney U via normal approximation. Companion to Welch: distribution-
+// free, so heavy-tailed microbenchmark timings don't quietly inflate the
+// false-positive rate the way mean-difference tests can. Uncorrected σ_U:
+// floating-point timings rarely tie exactly, so tie correction would change
+// nothing measurable.
+//
+// n1 < 8 || n2 < 8: normal approximation is unreliable in that regime; mark
+// `applicable: false` rather than emit a misleading verdict.
+export function rankSumTest(sample1, sample2) {
+  const n1 = sample1?.length ?? 0;
+  const n2 = sample2?.length ?? 0;
+
+  if (n1 < 8 || n2 < 8) {
+    return { applicable: false, u: null, z: null, significant: false, confidenceLevel: 0 };
+  }
+
+  const tagged = [];
+  for (let i = 0; i < n1; i++) tagged.push({ value: sample1[i], group: 1 });
+  for (let i = 0; i < n2; i++) tagged.push({ value: sample2[i], group: 2 });
+  tagged.sort((a, b) => a.value - b.value);
+
+  // Average rank across any tie groups: ties → all members get the mean of
+  // their would-be ranks. Run-length walk over the sorted array.
+  let r1Sum = 0;
+  let i = 0;
+  while (i < tagged.length) {
+    let j = i;
+    while (j + 1 < tagged.length && tagged[j + 1].value === tagged[i].value) {
+      j++;
+    }
+    const avgRank = (i + 1 + j + 1) / 2;
+    for (let k = i; k <= j; k++) {
+      if (tagged[k].group === 1) r1Sum += avgRank;
+    }
+    i = j + 1;
+  }
+
+  const u1 = r1Sum - (n1 * (n1 + 1)) / 2;
+  const u2 = n1 * n2 - u1;
+  const u = Math.min(u1, u2);
+
+  const muU = (n1 * n2) / 2;
+  const sigmaU = Math.sqrt((n1 * n2 * (n1 + n2 + 1)) / 12);
+  const z = sigmaU === 0 ? 0 : (u - muU) / sigmaU;
+  const absZ = Math.abs(z);
+
+  const significant = absZ > 1.96;
+  // Standard normal critical values — Mann–Whitney is asymptotically normal,
+  // so the z-table is correct here (unlike Welch's t-statistic, which needs a
+  // df-aware lookup).
+  const confidenceLevel =
+    absZ > 2.576 ? 99 :
+    absZ > 1.96  ? 95 :
+    absZ > 1.645 ? 90 : 0;
+
+  return {
+    applicable: true,
+    u: Number(u.toFixed(4)),
+    z: Number(z.toFixed(4)),
+    significant,
+    confidenceLevel,
   };
 }
 

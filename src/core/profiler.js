@@ -143,7 +143,7 @@ async function runInChild(benchmark, config) {
 
   return {
     name: benchmark.name,
-    timing: { ...stats, outliers: outliers.length, reliability },
+    timing: { ...stats, outliers: outliers.length, reliability, measurements: timings },
     optimization,
     metadata: {
       warmupRuns: config.profiling.warmupRuns,
