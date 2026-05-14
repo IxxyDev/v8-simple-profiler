@@ -19,10 +19,14 @@ It's also a sanity-check tool: drop in a function, see whether V8 keeps it optim
 
 ## What it measures
 
-Two functions are profiled sequentially, with a configurable delay between them so V8 state from one function doesn't bleed into the next:
+Two functions are profiled sequentially, with a configurable delay between them so V8 state from one function doesn't bleed into the next.
 
-- **`hotLoop`** — polymorphic: same operations applied to four different types in deterministic blocks. V8 *can* still partially optimize each block, but the function ends up with polymorphic inline caches, generic code paths, and (depending on type feedback) deopt events.
-- **`optimizedLoop`** — monomorphic: same shape of work, but only on numbers.
+The headline example, `example/polymorphism-only.js`, isolates inline-cache cost:
+
+- **`monomorphicCall`** — reads `.x` from a pre-allocated 4-element array whose objects share one hidden class. V8's IC at the access site stays monomorphic.
+- **`polymorphicCall`** — reads `.x` from a pre-allocated 4-element array whose objects have 4 distinct hidden classes. Same accessor, same iteration count, same allocation footprint; only the IC degrades to a 4-way polymorphic lookup.
+
+A second, larger example (`example/hot.js`) is included as a "mixed workload" demo. It pairs `hotLoop` (polymorphic, allocating four different value types into an array) against `optimizedLoop` (monomorphic numbers). Its ratio reflects *both* IC degradation *and* allocation/GC pressure, so it tends to look more dramatic than a pure IC effect — handy for showing the combined cost, but not a clean comparison.
 
 The profiler reports:
 
@@ -35,8 +39,9 @@ The profiler reports:
 
 ```bash
 npm install
-npm start          # basic run
-npm test           # run unit tests
+npm start                                          # runs the default (example/hot.js)
+node src/cli/index.js -b example/polymorphism-only.js   # headline mono-vs-poly demo
+npm test                                           # run unit tests
 ```
 
 Each benchmark is executed in a forked child process. The parent forwards
@@ -140,25 +145,26 @@ src/
 
 ## Sample output
 
+Running the headline polymorphism-only example:
+
 ```
 === PROFILING RESULTS ===
 
---- hotLoop ---
-Mean: 1.18ms   Median: 0.91ms
-Min: 0.78ms    Max: 5.49ms
-Std Dev: 0.73ms
-Reliability: medium
+--- monomorphicCall ---
+Mean: 0.42ms   Median: 0.40ms
+Reliability: high
 
---- optimizedLoop ---
-Mean: 0.43ms   Median: 0.34ms
-Min: 0.27ms    Max: 1.25ms
-Std Dev: 0.25ms
-Reliability: medium
+--- polymorphicCall ---
+Mean: 0.58ms   Median: 0.56ms
+Reliability: high
 
 === COMPARISON ===
-optimizedLoop is 2.73× faster than hotLoop
-  (172.9% difference, 99% confidence)
+monomorphicCall is ≈ 1.4× faster than polymorphicCall
 ```
+
+Exact numbers will vary by hardware and V8 version, but on modern V8 the ratio typically lands in the 1.2–1.6× range — that is the pure IC cost, with allocation and GC held constant.
+
+The `example/hot.js` mixed workload reports a larger gap (often 2–3×) because it folds allocation pressure into the same measurement.
 
 ## Requirements
 

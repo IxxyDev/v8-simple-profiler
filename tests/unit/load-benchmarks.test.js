@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { writeFile, mkdtemp, rm } from 'fs/promises';
 import { tmpdir } from 'os';
-import { join } from 'path';
+import { join, resolve } from 'path';
+import { pathToFileURL } from 'url';
 import { loadBenchmarks, collectBenchmarkSpecs } from '../../src/cli/load-benchmarks.js';
 
 describe('loadBenchmarks', () => {
@@ -80,6 +81,15 @@ describe('loadBenchmarks', () => {
     expect(benchmarks.length).toBeGreaterThan(0);
     expect(benchmarks.every(b => typeof b.path === 'string')).toBe(true);
     expect(benchmarks.every(b => typeof b.exportName === 'string')).toBe(true);
+  });
+});
+
+describe('polymorphism-only example', () => {
+  it('should expose monomorphicCall and polymorphicCall from polymorphism-only example', async () => {
+    const resolved = resolve('example/polymorphism-only.js');
+    const mod = await import(pathToFileURL(resolved).href);
+    expect(typeof mod.monomorphicCall).toBe('function');
+    expect(typeof mod.polymorphicCall).toBe('function');
   });
 });
 
