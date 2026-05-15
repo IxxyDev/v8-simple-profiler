@@ -34,6 +34,7 @@ program
   .option('--no-optimization', 'disable forced optimization')
   .option('--threshold <value>', 'outlier detection threshold', parseFloat)
   .option('--filename <template>', 'filename template for reports')
+  .option('--run-order-check', 'rerun benchmarks in reverse order and warn if the ranking flips (doubles wall-clock time)')
   .addHelpText('after', `
 Examples:
   $ v8-profiler                          # Run with default settings
@@ -167,6 +168,10 @@ function buildCliConfig(options) {
 
   if (options.threshold !== undefined) {
     cliConfig.analysis = { outlierThreshold: options.threshold };
+  }
+
+  if (options.runOrderCheck) {
+    cliConfig.profiling = { ...cliConfig.profiling, runOrderCheck: true };
   }
 
   return cliConfig;

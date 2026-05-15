@@ -316,6 +316,56 @@ describe('createProfiler / runBenchmarks (child-process integration)', () => {
     expect(result.optimization.attempts).toBeGreaterThanOrEqual(1);
   });
 
+  it('should honor the runOrderCheck flag and not flag clearly-separated benchmarks as order-dependent', async () => {
+    // Two benchmarks where the cost ratio is large enough that ordering
+    // cannot plausibly flip the ranking. The flag should run both passes
+    // (forward + reverse) and leave orderDependent unset on every result.
+    const file = join(dir, 'bench.js');
+    await writeFile(file, `
+      export function fast() { return 1; }
+      export function slow() {
+        let s = 0;
+        for (let k = 0; k < 50; k++) {
+          for (let i = 0; i < 200000; i++) s += i;
+        }
+        return s;
+      }
+    `);
+
+    const profiler = await createProfiler({
+      ...FAST_CONFIG,
+      profiling: { ...FAST_CONFIG.profiling, runOrderCheck: true },
+    });
+    const results = await profiler.runBenchmarks([
+      { name: 'fast', path: file, exportName: 'fast' },
+      { name: 'slow', path: file, exportName: 'slow' },
+    ]);
+
+    expect(results).toHaveLength(2);
+    for (const r of results) {
+      expect(r.metadata?.orderDependent).toBeFalsy();
+    }
+  });
+
+  it('should not perform a second pass when runOrderCheck is off', async () => {
+    const file = join(dir, 'bench.js');
+    await writeFile(file, `
+      export function a() { return 1; }
+      export function b() { return 2; }
+    `);
+
+    const profiler = await createProfiler(FAST_CONFIG);
+    const results = await profiler.runBenchmarks([
+      { name: 'a', path: file, exportName: 'a' },
+      { name: 'b', path: file, exportName: 'b' },
+    ]);
+
+    expect(results).toHaveLength(2);
+    for (const r of results) {
+      expect(r.metadata?.orderDependent).toBeUndefined();
+    }
+  });
+
   it('should report traceParserHealth="ok" on a normal run', async () => {
     const file = join(dir, 'bench.js');
     await writeFile(file, `

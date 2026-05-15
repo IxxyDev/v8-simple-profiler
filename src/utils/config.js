@@ -8,6 +8,7 @@ export const DEFAULT_CONFIG = {
     warmupRuns: 10,
     testRuns: 1000,
     delayBetweenTests: 100, // ms
+    runOrderCheck: false,
   },
 
   output: {
@@ -34,7 +35,8 @@ const CONFIG_SCHEMA = {
   profiling: {
     warmupRuns: { type: 'number', min: 1, max: 10000 },
     testRuns: { type: 'number', min: 1, max: 1000000 },
-    delayBetweenTests: { type: 'number', min: 0, max: 10000 }
+    delayBetweenTests: { type: 'number', min: 0, max: 10000 },
+    runOrderCheck: { type: 'boolean' }
   },
   output: {
     format: { type: 'string', enum: ['console', 'json', 'csv', 'all'] },

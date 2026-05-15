@@ -36,26 +36,67 @@ export async function createProfiler(options = {}) {
     v8Available: !!config.v8.enableIntrinsics,
 
     async runBenchmarks(benchmarks) {
-      const results = [];
+      const forwardResults = await runSequence(benchmarks, config);
 
-      for (const benchmark of benchmarks) {
-        console.log(`\n=== Profiling ${benchmark.name} ===`);
-        try {
-          const result = await runInChild(benchmark, config);
-          results.push(result);
-        } catch (error) {
-          console.error(`Error profiling ${benchmark.name}:`, error.message);
-          results.push(createErrorResult(benchmark.name, error));
-        }
+      if (!config.profiling.runOrderCheck || benchmarks.length < 2) {
+        return forwardResults;
+      }
 
-        if (config.profiling.delayBetweenTests > 0) {
-          await delay(config.profiling.delayBetweenTests);
+      // Order-check pass: rerun the benchmarks in reverse and compare the
+      // ranking. If the top-1 differs between orders the ranking is order-
+      // dependent, which usually means measurement noise dominates the
+      // separation between benchmarks (CPU caches, thermal state, or shared
+      // V8 inline-cache feedback across runs).
+      console.log('\n=== Run-order check: rerunning in reverse ===');
+      const reverseResults = await runSequence([...benchmarks].reverse(), config);
+
+      const forwardRanking = rankByMean(forwardResults);
+      const reverseRanking = rankByMean(reverseResults);
+      const top1Flipped =
+        forwardRanking.length > 0 &&
+        reverseRanking.length > 0 &&
+        forwardRanking[0] !== reverseRanking[0];
+
+      if (top1Flipped) {
+        console.warn(
+          `[profiler] run-order check: ranking top-1 flipped between forward (${forwardRanking[0]}) and reverse (${reverseRanking[0]}); results are order-dependent`
+        );
+        for (const r of forwardResults) {
+          if (r.metadata) r.metadata.orderDependent = true;
         }
       }
 
-      return results;
+      return forwardResults;
     },
   };
+}
+
+async function runSequence(benchmarks, config) {
+  const results = [];
+
+  for (const benchmark of benchmarks) {
+    console.log(`\n=== Profiling ${benchmark.name} ===`);
+    try {
+      const result = await runInChild(benchmark, config);
+      results.push(result);
+    } catch (error) {
+      console.error(`Error profiling ${benchmark.name}:`, error.message);
+      results.push(createErrorResult(benchmark.name, error));
+    }
+
+    if (config.profiling.delayBetweenTests > 0) {
+      await delay(config.profiling.delayBetweenTests);
+    }
+  }
+
+  return results;
+}
+
+function rankByMean(results) {
+  return [...results]
+    .filter(r => r.timing && typeof r.timing.mean === 'number')
+    .sort((a, b) => a.timing.mean - b.timing.mean)
+    .map(r => r.name);
 }
 
 // Known-good V8 --trace-opt line used to verify the parser regex still matches
