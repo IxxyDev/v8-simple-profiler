@@ -162,6 +162,19 @@ export function compareResults(baseline, comparison) {
   const percentageDifference = ((comparisonMean - baselineMean) / baselineMean) * 100;
   const speedupRatio = baselineMean / comparisonMean;
 
+  // `ratio` is orientation-free (always >= 1) and `direction` is the
+  // comparison's relationship to the baseline. Prefer these over `speedup`,
+  // which is misleadingly named when the comparison is slower than baseline.
+  // `speedup` is retained for backwards compatibility.
+  const ratio = comparisonMean === 0 || baselineMean === 0
+    ? null
+    : Math.max(baselineMean, comparisonMean) / Math.min(baselineMean, comparisonMean);
+  const direction = comparisonMean === baselineMean
+    ? 'same'
+    : comparisonMean < baselineMean
+      ? 'faster'
+      : 'slower';
+
   const significance = calculateSignificance(baseline.timing, comparison.timing);
   significance.mannWhitney = rankSumTest(
     baseline.timing.measurements,
@@ -182,7 +195,9 @@ export function compareResults(baseline, comparison) {
     difference: {
       absolute: Number(absoluteDifference.toFixed(4)),
       percentage: Number(percentageDifference.toFixed(2)),
-      speedup: Number(speedupRatio.toFixed(2))
+      speedup: Number(speedupRatio.toFixed(2)),
+      ratio: ratio === null ? null : Number(ratio.toFixed(4)),
+      direction
     },
     significance,
     summary: generateComparisonSummary(percentageDifference, significance)

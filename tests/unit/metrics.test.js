@@ -128,6 +128,36 @@ describe('df-aware significance', () => {
   });
 });
 
+describe('compareResults orientation-free ratio and direction', () => {
+  it('should set direction="slower" and ratio>1 when comparison is slower than baseline', () => {
+    const baseline = asResult('fast', [1, 1, 1, 1, 1, 1, 1, 1, 1, 1]);
+    const comparison = asResult('slow', [3, 3, 3, 3, 3, 3, 3, 3, 3, 3]);
+    const cmp = compareResults(baseline, comparison);
+    expect(cmp.difference.direction).toBe('slower');
+    expect(cmp.difference.ratio).toBeCloseTo(3.0, 4);
+    // Backwards-compat field stays present.
+    expect(cmp.difference).toHaveProperty('speedup');
+  });
+
+  it('should set direction="faster" and ratio>1 when comparison is faster than baseline', () => {
+    const baseline = asResult('slow', [3, 3, 3, 3, 3, 3, 3, 3, 3, 3]);
+    const comparison = asResult('fast', [1, 1, 1, 1, 1, 1, 1, 1, 1, 1]);
+    const cmp = compareResults(baseline, comparison);
+    expect(cmp.difference.direction).toBe('faster');
+    expect(cmp.difference.ratio).toBeCloseTo(3.0, 4);
+    // ratio is always >= 1 regardless of orientation.
+    expect(cmp.difference.ratio).toBeGreaterThanOrEqual(1);
+  });
+
+  it('should set direction="same" when means are identical', () => {
+    const baseline = asResult('a', [2, 2, 2, 2, 2, 2, 2, 2, 2, 2]);
+    const comparison = asResult('b', [2, 2, 2, 2, 2, 2, 2, 2, 2, 2]);
+    const cmp = compareResults(baseline, comparison);
+    expect(cmp.difference.direction).toBe('same');
+    expect(cmp.difference.ratio).toBeCloseTo(1.0, 4);
+  });
+});
+
 describe('calculateStats tail-percentile suppression', () => {
   it('should expose p90/p95/p99 at n=100', () => {
     const samples = [];
