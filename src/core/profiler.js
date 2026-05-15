@@ -58,9 +58,27 @@ export async function createProfiler(options = {}) {
   };
 }
 
+// Known-good V8 --trace-opt line used to verify the parser regex still matches
+// the running Node's trace format. If V8 reshuffles the format (as it has
+// across Node 18/20/Maglev), the parser silently records zero events forever;
+// surfacing a 'unknown_format' verdict in metadata lets consumers spot that
+// regression instead of trusting empty optimization counters.
+const TRACE_PROBE_LINE =
+  '[marking 0x22bac9112da1 <JSFunction __traceProbe__ (sfi = 0x157c3d9067b1)> for optimization to MAGLEV, ConcurrencyMode::kConcurrent, reason: hot and stable]';
+const TRACE_PROBE_NAME = '__traceProbe__';
+
+function probeTraceParser() {
+  parseTraceLine(TRACE_PROBE_LINE);
+  return optimizationInfo.has(TRACE_PROBE_NAME) ? 'ok' : 'unknown_format';
+}
+
 async function runInChild(benchmark, config) {
   // Each benchmark gets fresh parser state so its counters aren't polluted by
-  // events from a previous benchmark in the same parent run.
+  // events from a previous benchmark in the same parent run. The probe runs
+  // against the same parser and is cleared here so its synthetic entry never
+  // leaks into the benchmark's real counters.
+  clearOptimizationData();
+  const traceParserHealth = probeTraceParser();
   clearOptimizationData();
 
   const execArgv = [];
@@ -159,6 +177,7 @@ async function runInChild(benchmark, config) {
       batchSize,
       mode,
       sinkChecksum,
+      traceParserHealth,
     },
   };
 }

@@ -290,6 +290,24 @@ describe('createProfiler / runBenchmarks (child-process integration)', () => {
     expect(optimizationInfo.has('phantomFn')).toBe(false);
   });
 
+  it('should report traceParserHealth="ok" on a normal run', async () => {
+    const file = join(dir, 'bench.js');
+    await writeFile(file, `
+      export function hot() {
+        let s = 0;
+        for (let i = 0; i < 3000; i++) s += i;
+        return s;
+      }
+    `);
+
+    const profiler = await createProfiler(FAST_CONFIG);
+    const [result] = await profiler.runBenchmarks([
+      { name: 'hot', path: file, exportName: 'hot' },
+    ]);
+
+    expect(result.metadata.traceParserHealth).toBe('ok');
+  });
+
   it('should still parse real V8 trace lines through parseTraceLine', () => {
     clearOptimizationData();
     parseTraceLine('[marking 0x123 <JSFunction realName (sfi = 0x42)> for optimization to TURBOFAN_JS, ConcurrencyMode::kSynchronous]');
