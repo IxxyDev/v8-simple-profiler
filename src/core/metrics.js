@@ -19,11 +19,18 @@ export function calculateStats(measurements) {
   const min = sorted[0];
   const max = sorted[length - 1];
 
-  const p95 = percentile(sorted, 95);
-  const p99 = percentile(sorted, 99);
-  const p90 = percentile(sorted, 90);
+  // Tail percentiles (p90/p95/p99) need a minimum sample size to mean anything
+  // distinct from min/max. At n=10, p99 is literally max; at n=20, p95 is the
+  // second-largest sample. Below this cutoff the value is just headline noise.
+  // p25/p75 are well-defined at small n because they bracket the median.
+  const TAIL_PERCENTILE_MIN_N = 30;
+  const tailPercentilesAvailable = length >= TAIL_PERCENTILE_MIN_N;
+
   const p75 = percentile(sorted, 75);
   const p25 = percentile(sorted, 25);
+  const p90 = tailPercentilesAvailable ? percentile(sorted, 90) : null;
+  const p95 = tailPercentilesAvailable ? percentile(sorted, 95) : null;
+  const p99 = tailPercentilesAvailable ? percentile(sorted, 99) : null;
 
   // Precision: per-call timings from batched measurement can be sub-µs; round
   // to 7 decimals (sub-ns) so a fast (or noop) benchmark doesn't underflow to
@@ -42,9 +49,9 @@ export function calculateStats(measurements) {
     cov: Number(cov.toFixed(7)),
     p25: Number(p25.toFixed(7)),
     p75: Number(p75.toFixed(7)),
-    p90: Number(p90.toFixed(7)),
-    p95: Number(p95.toFixed(7)),
-    p99: Number(p99.toFixed(7)),
+    p90: p90 === null ? null : Number(p90.toFixed(7)),
+    p95: p95 === null ? null : Number(p95.toFixed(7)),
+    p99: p99 === null ? null : Number(p99.toFixed(7)),
     count: length
   };
 }

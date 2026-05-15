@@ -41,6 +41,17 @@ function formatResult(result, includeRawData) {
       type: result.error.type
     };
   } else {
+    // Tail percentiles (p90/p95/p99) are omitted at count < 30 because they
+    // collapse onto min/max in that regime; calculateStats returns null and
+    // we drop the keys from the payload rather than emit misleading values.
+    const percentiles = {
+      p25: result.timing.p25,
+      p75: result.timing.p75
+    };
+    if (result.timing.p90 !== null) percentiles.p90 = result.timing.p90;
+    if (result.timing.p95 !== null) percentiles.p95 = result.timing.p95;
+    if (result.timing.p99 !== null) percentiles.p99 = result.timing.p99;
+
     formatted.timing = {
       mean: result.timing.mean,
       median: result.timing.median,
@@ -48,13 +59,7 @@ function formatResult(result, includeRawData) {
       max: result.timing.max,
       stdDev: result.timing.stdDev,
       variance: result.timing.variance,
-      percentiles: {
-        p25: result.timing.p25,
-        p75: result.timing.p75,
-        p90: result.timing.p90,
-        p95: result.timing.p95,
-        p99: result.timing.p99
-      },
+      percentiles,
       outliers: result.timing.outliers,
       reliability: result.timing.reliability,
       count: result.timing.count

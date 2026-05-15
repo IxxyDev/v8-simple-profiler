@@ -40,7 +40,14 @@ function formatSingleResult(result, verbose) {
 
   if (verbose) {
     console.log(`P25: ${timing.p25}ms | P75: ${timing.p75}ms`);
-    console.log(`P90: ${timing.p90}ms | P95: ${timing.p95}ms | P99: ${timing.p99}ms`);
+    // p90/p95/p99 are suppressed below n=30 because the values collapse onto
+    // min/max in that regime. Print a one-line note instead so the absence
+    // of the percentile line is intentional and visible.
+    if (timing.p90 !== null && timing.p95 !== null && timing.p99 !== null) {
+      console.log(`P90: ${timing.p90}ms | P95: ${timing.p95}ms | P99: ${timing.p99}ms`);
+    } else {
+      console.log(`P90/P95/P99: suppressed (n=${timing.count} < 30)`);
+    }
     console.log(`Outliers: ${timing.outliers}/${timing.count}`);
   }
 

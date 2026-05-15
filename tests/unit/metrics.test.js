@@ -128,6 +128,42 @@ describe('df-aware significance', () => {
   });
 });
 
+describe('calculateStats tail-percentile suppression', () => {
+  it('should expose p90/p95/p99 at n=100', () => {
+    const samples = [];
+    for (let i = 1; i <= 100; i++) samples.push(i);
+    const stats = calculateStats(samples);
+    expect(stats.p90).not.toBeNull();
+    expect(stats.p95).not.toBeNull();
+    expect(stats.p99).not.toBeNull();
+    expect(typeof stats.p90).toBe('number');
+    expect(typeof stats.p95).toBe('number');
+    expect(typeof stats.p99).toBe('number');
+  });
+
+  it('should suppress p90/p95/p99 at n=10', () => {
+    const stats = calculateStats([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+    expect(stats.p90).toBeNull();
+    expect(stats.p95).toBeNull();
+    expect(stats.p99).toBeNull();
+    // p25/p75 stay populated — they bracket the median even at small n.
+    expect(typeof stats.p25).toBe('number');
+    expect(typeof stats.p75).toBe('number');
+  });
+
+  it('should suppress p90/p95/p99 at the n=29 boundary and expose them at n=30', () => {
+    const small = [];
+    for (let i = 1; i <= 29; i++) small.push(i);
+    const stats29 = calculateStats(small);
+    expect(stats29.p90).toBeNull();
+
+    const big = [];
+    for (let i = 1; i <= 30; i++) big.push(i);
+    const stats30 = calculateStats(big);
+    expect(stats30.p90).not.toBeNull();
+  });
+});
+
 describe('calculateStats coefficient of variation', () => {
   it('should expose cov on calculateStats output', () => {
     const stats = calculateStats([10, 10, 10, 10, 10, 10, 10, 10, 10, 10]);
