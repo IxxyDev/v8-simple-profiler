@@ -2,7 +2,6 @@
   "profiling": {
     "warmupRuns": 10,
     "testRuns": 1000,
-    "iterations": 1,
     "delayBetweenTests": 100
   },
   "output": {

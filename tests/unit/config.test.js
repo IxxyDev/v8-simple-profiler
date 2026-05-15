@@ -106,7 +106,7 @@ describe('Configuration System', () => {
       
       expect(merged.profiling.warmupRuns).toBe(20); // from userConfig
       expect(merged.profiling.testRuns).toBe(500); // from cliOptions
-      expect(merged.profiling.iterations).toBe(1); // from defaults
+      expect(merged.profiling.delayBetweenTests).toBe(100); // from defaults
       expect(merged.output.format).toBe('json'); // from userConfig
       expect(merged.output.verbose).toBe(true); // from cliOptions
     });

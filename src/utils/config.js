@@ -7,7 +7,6 @@ export const DEFAULT_CONFIG = {
   profiling: {
     warmupRuns: 10,
     testRuns: 1000,
-    iterations: 1,
     delayBetweenTests: 100, // ms
   },
 
@@ -35,7 +34,6 @@ const CONFIG_SCHEMA = {
   profiling: {
     warmupRuns: { type: 'number', min: 1, max: 10000 },
     testRuns: { type: 'number', min: 1, max: 1000000 },
-    iterations: { type: 'number', min: 1, max: 100 },
     delayBetweenTests: { type: 'number', min: 0, max: 10000 }
   },
   output: {

@@ -3,7 +3,6 @@ export default {
   profiling: {
     warmupRuns: 15,
     testRuns: 500,
-    iterations: 1,
     delayBetweenTests: 100
   },
 
