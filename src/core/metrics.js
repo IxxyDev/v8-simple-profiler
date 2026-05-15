@@ -165,7 +165,6 @@ export function compareResults(baseline, comparison) {
   // `ratio` is orientation-free (always >= 1) and `direction` is the
   // comparison's relationship to the baseline. Prefer these over `speedup`,
   // which is misleadingly named when the comparison is slower than baseline.
-  // `speedup` is retained for backwards compatibility.
   const ratio = comparisonMean === 0 || baselineMean === 0
     ? null
     : Math.max(baselineMean, comparisonMean) / Math.min(baselineMean, comparisonMean);

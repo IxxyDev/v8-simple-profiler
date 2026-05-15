@@ -135,7 +135,6 @@ describe('compareResults orientation-free ratio and direction', () => {
     const cmp = compareResults(baseline, comparison);
     expect(cmp.difference.direction).toBe('slower');
     expect(cmp.difference.ratio).toBeCloseTo(3.0, 4);
-    // Backwards-compat field stays present.
     expect(cmp.difference).toHaveProperty('speedup');
   });
 
