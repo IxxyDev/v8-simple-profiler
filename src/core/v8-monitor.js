@@ -1,18 +1,6 @@
 export const optimizationInfo = new Map();
 export const deoptedFunctions = new Set();
 
-// V8 --trace-opt / --trace-deopt writes to stdout in modern Node (≥ ~Node 14
-// the messages moved from stderr to stdout). The previous implementation only
-// patched stderr, so it never captured anything in current runtimes. We patch
-// both streams to stay compatible with older Node, and accumulate a line
-// buffer because process.stdout chunks may split V8's `[...]\n` records.
-let stdoutPatched = false;
-let stderrPatched = false;
-let originalStdoutWrite = null;
-let originalStderrWrite = null;
-let lineBuffer = '';
-const MAX_BUFFER = 64 * 1024;
-
 // V8 emits two flavours of optimization markers:
 //   [marking 0x… <JSFunction foo (sfi = …)> for optimization to MAGLEV, …, reason: hot and stable]
 //   [manually marking 0x… <JSFunction foo (sfi = …)> for optimization to TURBOFAN_JS, ConcurrencyMode::kSynchronous]
@@ -51,68 +39,6 @@ const intrinsicStatus = makeIntrinsic('return %GetOptimizationStatus(fn)');
 
 let intrinsicsAvailableCache = null;
 
-export function setupV8Monitoring() {
-  if (!stdoutPatched) {
-    try {
-      originalStdoutWrite = process.stdout.write.bind(process.stdout);
-      process.stdout.write = makeMonitor(process.stdout, originalStdoutWrite);
-      stdoutPatched = true;
-    } catch (error) {
-      console.warn('Failed to setup V8 stdout monitoring:', error.message);
-    }
-  }
-  if (!stderrPatched) {
-    try {
-      originalStderrWrite = process.stderr.write.bind(process.stderr);
-      process.stderr.write = makeMonitor(process.stderr, originalStderrWrite);
-      stderrPatched = true;
-    } catch (error) {
-      console.warn('Failed to setup V8 stderr monitoring:', error.message);
-    }
-  }
-}
-
-export function stopV8Monitoring() {
-  if (stdoutPatched && originalStdoutWrite) {
-    process.stdout.write = originalStdoutWrite;
-    stdoutPatched = false;
-  }
-  if (stderrPatched && originalStderrWrite) {
-    process.stderr.write = originalStderrWrite;
-    stderrPatched = false;
-  }
-  lineBuffer = '';
-}
-
-function makeMonitor(stream, original) {
-  return function patchedWrite(chunk, enc, cb) {
-    try {
-      ingestChunk(chunk);
-    } catch {
-      // Monitoring must never break the user's I/O.
-    }
-    return original(chunk, enc, cb);
-  };
-}
-
-function ingestChunk(chunk) {
-  const text = typeof chunk === 'string' ? chunk : chunk?.toString?.('utf8');
-  if (!text) return;
-  lineBuffer += text;
-
-  let newlineIdx;
-  while ((newlineIdx = lineBuffer.indexOf('\n')) !== -1) {
-    const line = lineBuffer.slice(0, newlineIdx);
-    lineBuffer = lineBuffer.slice(newlineIdx + 1);
-    if (line) parseTraceLine(line);
-  }
-
-  if (lineBuffer.length > MAX_BUFFER) {
-    // Drop the head — protects us from a stream that never emits newlines.
-    lineBuffer = lineBuffer.slice(-MAX_BUFFER / 2);
-  }
-}
-
 export function parseTraceLine(line) {
   if (line.indexOf('<JSFunction') === -1) return;
 
@@ -137,10 +63,14 @@ export function parseTraceLine(line) {
   }
 }
 
-// Exposed only for tests: feed a chunk through the parser without patching
-// process streams. Not part of the public API.
+// Exposed only for tests: feed a chunk through the parser. Splits on `\n` and
+// dispatches each line to parseTraceLine directly. Not part of the public API.
 export function ingestTraceChunkForTesting(chunk) {
-  ingestChunk(chunk);
+  const text = typeof chunk === 'string' ? chunk : chunk?.toString?.('utf8');
+  if (!text) return;
+  for (const line of text.split('\n')) {
+    if (line) parseTraceLine(line);
+  }
 }
 
 export function getOptimizationStatus(fn, name) {
@@ -236,7 +166,6 @@ export function forceOptimization(fn) {
 export function clearOptimizationData() {
   optimizationInfo.clear();
   deoptedFunctions.clear();
-  lineBuffer = '';
 }
 
 export function getOptimizationInsights(result) {

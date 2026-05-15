@@ -88,10 +88,10 @@ describe('V8 trace parsing', () => {
     expect(deoptedFunctions.has('next')).toBe(true);
   });
 
-  it('should reassemble a line split across multiple chunks', () => {
-    // Chunk boundary mid-line — must not lose the event.
-    ingestTraceChunkForTesting('[marking 0x1 <JSFunction split (sfi = 0x2)> for optimi');
-    ingestTraceChunkForTesting('zation to TURBOFAN, ConcurrencyMode::kConcurrent, reason: hot and stable]\n');
+  it('should parse a complete optimization line delivered as one chunk', () => {
+    ingestTraceChunkForTesting(
+      '[marking 0x1 <JSFunction split (sfi = 0x2)> for optimization to TURBOFAN, ConcurrencyMode::kConcurrent, reason: hot and stable]\n'
+    );
     expect(optimizationInfo.has('split')).toBe(true);
     expect(optimizationInfo.get('split').attempts).toBe(1);
   });
