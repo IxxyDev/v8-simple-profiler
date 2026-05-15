@@ -9,6 +9,7 @@ import {
   optimizationInfo,
   deoptedFunctions,
   ingestTraceChunkForTesting,
+  getOptimizationInsights,
 } from '../../src/core/v8-monitor.js';
 
 const hasIntrinsics = isV8IntrinsicsAvailable();
@@ -121,5 +122,45 @@ describe('V8 trace parsing', () => {
       '[marking 0x1 <JSFunction (sfi = 0x2)> for optimization to MAGLEV, ConcurrencyMode::kConcurrent, reason: hot and stable]\n'
     );
     expect(optimizationInfo.size).toBe(0);
+  });
+});
+
+describe('getOptimizationInsights OSR / top-tier presentation', () => {
+  function resultWithFlags(partialFlags) {
+    return {
+      optimization: {
+        available: true,
+        flags: { ...partialFlags },
+        deoptimized: false,
+        attempts: 0,
+        reasons: [],
+      },
+    };
+  }
+
+  it('should emit one composite line when both OSR and top-tier TurboFan are set', () => {
+    const insights = getOptimizationInsights(
+      resultWithFlags({ optimized_osr: true, is_topTierTurbofan: true })
+    );
+    expect(insights).toContain('✓ Optimized via OSR to TurboFan (top tier)');
+    // Independent lines must not also appear when the composite fires.
+    expect(insights).not.toContain('✓ Optimized with TurboFan (top tier)');
+    expect(insights).not.toContain('→ Optimized via OSR (On-Stack Replacement)');
+  });
+
+  it('should emit the top-tier line when only is_topTierTurbofan is set', () => {
+    const insights = getOptimizationInsights(
+      resultWithFlags({ optimized_osr: false, is_topTierTurbofan: true })
+    );
+    expect(insights).toContain('✓ Optimized with TurboFan (top tier)');
+    expect(insights).not.toContain('→ Optimized via OSR (On-Stack Replacement)');
+  });
+
+  it('should emit the OSR line when only optimized_osr is set', () => {
+    const insights = getOptimizationInsights(
+      resultWithFlags({ optimized_osr: true, is_topTierTurbofan: false })
+    );
+    expect(insights).toContain('→ Optimized via OSR (On-Stack Replacement)');
+    expect(insights).not.toContain('✓ Optimized with TurboFan (top tier)');
   });
 });

@@ -178,8 +178,15 @@ export function getOptimizationInsights(result) {
 
   const { flags, deoptimized, attempts, reasons } = result.optimization;
 
-  if (flags.is_topTierTurbofan) {
+  // OSR and top-tier TurboFan are not mutually exclusive — a function can be
+  // OSR'd into top-tier TurboFan. Emit one composite line when both are set
+  // so the report does not read as if they are independent verdicts.
+  if (flags.optimized_osr && flags.is_topTierTurbofan) {
+    insights.push('✓ Optimized via OSR to TurboFan (top tier)');
+  } else if (flags.is_topTierTurbofan) {
     insights.push('✓ Optimized with TurboFan (top tier)');
+  } else if (flags.optimized_osr) {
+    insights.push('→ Optimized via OSR (On-Stack Replacement)');
   } else if (flags.optimized) {
     insights.push('✓ Function is optimized');
   } else if (flags.is_interpreted) {
@@ -192,10 +199,6 @@ export function getOptimizationInsights(result) {
 
   if (flags.maybe_deopted) {
     insights.push('⚠ Function may have been deoptimized');
-  }
-
-  if (flags.optimized_osr) {
-    insights.push('→ Optimized via OSR (On-Stack Replacement)');
   }
 
   if (attempts > 0) {
