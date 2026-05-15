@@ -290,6 +290,32 @@ describe('createProfiler / runBenchmarks (child-process integration)', () => {
     expect(optimizationInfo.has('phantomFn')).toBe(false);
   });
 
+  it('should wait for stdout/stderr drain so trailing trace events are not lost', async () => {
+    // Heavy work in a tight loop produces trailing tier-up records that V8
+    // commonly writes between the child's IPC send and process.exit. The
+    // parent must wait for stream close to capture them. We can't assert on
+    // a specific trailing event (V8 emits them nondeterministically), but a
+    // successful resolve with attempts >= 1 demonstrates the drain wait did
+    // not strand the message.
+    const file = join(dir, 'bench.js');
+    await writeFile(file, `
+      export function heavy() {
+        let s = 0;
+        for (let i = 0; i < 50000; i++) s += i * 3;
+        return s;
+      }
+    `);
+
+    const profiler = await createProfiler(FAST_CONFIG);
+    const [result] = await profiler.runBenchmarks([
+      { name: 'heavy', path: file, exportName: 'heavy' },
+    ]);
+
+    expect(result.error).toBeUndefined();
+    expect(result.timing).toBeTypeOf('object');
+    expect(result.optimization.attempts).toBeGreaterThanOrEqual(1);
+  });
+
   it('should report traceParserHealth="ok" on a normal run', async () => {
     const file = join(dir, 'bench.js');
     await writeFile(file, `

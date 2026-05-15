@@ -103,17 +103,67 @@ async function runInChild(benchmark, config) {
   const handleLine = line => {
     if (isV8TraceLine(line)) parseTraceLine(line);
   };
-  readline.createInterface({ input: child.stdout }).on('line', handleLine);
-  readline.createInterface({ input: child.stderr }).on('line', handleLine);
+  const stdoutRl = readline.createInterface({ input: child.stdout });
+  const stderrRl = readline.createInterface({ input: child.stderr });
+  stdoutRl.on('line', handleLine);
+  stderrRl.on('line', handleLine);
 
+  // The child sends its IPC result and then calls setImmediate(process.exit).
+  // V8 --trace-opt lines written between `send` and `exit` are still in the
+  // parent's libuv stdout buffer when the child's 'exit' event fires, so
+  // resolving on 'exit' alone drops trailing tier-up records — exactly the
+  // events that come from the optimizer settling at the end of the run.
+  //
+  // Wait until BOTH conditions are met: the IPC message has arrived AND both
+  // readline streams have emitted 'close' (which fires only after stdout/
+  // stderr are fully drained). The hard timeout guards against a stalled
+  // stream so a misbehaving child cannot hang the parent indefinitely.
+  const STREAM_DRAIN_TIMEOUT_MS = 5000;
   const ipcMessage = await new Promise((res, rej) => {
     let received = null;
-    child.on('message', m => { received = m; });
-    child.on('error', rej);
+    let stdoutClosed = false;
+    let stderrClosed = false;
+    let settled = false;
+    let timeoutHandle = null;
+
+    const tryResolve = () => {
+      if (settled) return;
+      if (received && stdoutClosed && stderrClosed) {
+        settled = true;
+        if (timeoutHandle) clearTimeout(timeoutHandle);
+        res(received);
+      }
+    };
+
+    const fail = err => {
+      if (settled) return;
+      settled = true;
+      if (timeoutHandle) clearTimeout(timeoutHandle);
+      rej(err);
+    };
+
+    child.on('message', m => { received = m; tryResolve(); });
+    child.on('error', fail);
+    stdoutRl.on('close', () => { stdoutClosed = true; tryResolve(); });
+    stderrRl.on('close', () => { stderrClosed = true; tryResolve(); });
     child.on('exit', code => {
-      if (received) res(received);
-      else rej(new Error(`Benchmark child exited (${code}) without sending a result`));
+      if (!received) {
+        fail(new Error(`Benchmark child exited (${code}) without sending a result`));
+      }
     });
+
+    timeoutHandle = setTimeout(() => {
+      if (settled) return;
+      console.warn(
+        `[profiler] timed out waiting ${STREAM_DRAIN_TIMEOUT_MS}ms for child stream drain; resolving with current state`
+      );
+      if (received) {
+        settled = true;
+        res(received);
+      } else {
+        fail(new Error('Benchmark child stream drain timed out without a result'));
+      }
+    }, STREAM_DRAIN_TIMEOUT_MS);
   });
 
   if (ipcMessage.type === 'error') {
