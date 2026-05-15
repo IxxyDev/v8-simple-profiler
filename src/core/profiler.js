@@ -11,7 +11,7 @@ import {
 } from './v8-monitor.js';
 import { calculateStats, detectOutliers, assessReliability } from './metrics.js';
 import { delay } from '../utils/async.js';
-import { DEFAULT_CONFIG } from '../utils/config.js';
+import { DEFAULT_CONFIG, mergeConfig } from '../utils/config.js';
 
 const RUNNER_PATH = resolve(
   dirname(fileURLToPath(import.meta.url)),
@@ -173,18 +173,6 @@ function isV8TraceLine(line) {
     line.startsWith('[manually marking ') ||
     line.startsWith('[bailout ')
   );
-}
-
-function mergeConfig(defaults, override) {
-  const out = JSON.parse(JSON.stringify(defaults));
-  for (const key of Object.keys(override)) {
-    if (override[key] && typeof override[key] === 'object' && !Array.isArray(override[key])) {
-      out[key] = { ...out[key], ...override[key] };
-    } else {
-      out[key] = override[key];
-    }
-  }
-  return out;
 }
 
 function createErrorResult(name, error) {
