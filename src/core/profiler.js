@@ -160,6 +160,7 @@ async function runInChild(benchmark, config) {
   // stderr are fully drained). The hard timeout guards against a stalled
   // stream so a misbehaving child cannot hang the parent indefinitely.
   const STREAM_DRAIN_TIMEOUT_MS = 5000;
+  let streamDrainTimedOut = false;
   const ipcMessage = await new Promise((res, rej) => {
     let received = null;
     let stdoutClosed = false;
@@ -195,6 +196,7 @@ async function runInChild(benchmark, config) {
 
     timeoutHandle = setTimeout(() => {
       if (settled) return;
+      streamDrainTimedOut = true;
       console.warn(
         `[profiler] timed out waiting ${STREAM_DRAIN_TIMEOUT_MS}ms for child stream drain; resolving with current state`
       );
@@ -269,6 +271,7 @@ async function runInChild(benchmark, config) {
       mode,
       sinkChecksum,
       traceParserHealth,
+      streamDrainTimedOut,
     },
   };
 }
