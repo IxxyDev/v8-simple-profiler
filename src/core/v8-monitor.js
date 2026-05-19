@@ -73,6 +73,10 @@ export function ingestTraceChunkForTesting(chunk) {
   }
 }
 
+// Returns only what the intrinsics actually know in the current isolate:
+// the decoded status word and whether *this* isolate has seen a bailout for
+// `name`. Trace-derived counters (attempts/reasons/tiers) live in the parent
+// because the --trace-opt stream is parsed there; the parent merges them in.
 export function getOptimizationStatus(fn, name) {
   if (!isV8IntrinsicsAvailable() || !intrinsicStatus) {
     return { available: false };
@@ -81,15 +85,12 @@ export function getOptimizationStatus(fn, name) {
   try {
     const status = intrinsicStatus(fn);
     const flags = decodeOptimizationStatus(status);
-    const info = optimizationInfo.get(name);
 
     return {
       available: true,
       status,
       flags,
       deoptimized: deoptedFunctions.has(name),
-      attempts: info?.attempts || 0,
-      reasons: info?.reasons || []
     };
   } catch (error) {
     return {
