@@ -56,6 +56,12 @@ function formatSingleResult(result, verbose) {
     const insights = getOptimizationInsights(result);
     insights.forEach(insight => console.log(`  ${insight}`));
   }
+
+  const warnings = result.metadata?.warnings ?? [];
+  if (warnings.length > 0) {
+    console.log('\nWarnings:');
+    warnings.forEach(w => console.log(`  ⚠ ${w}`));
+  }
 }
 
 function getReliabilityIcon(reliability) {

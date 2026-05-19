@@ -255,6 +255,19 @@ async function runInChild(benchmark, config) {
     forced: forced ?? config.v8.forceOptimization,
   };
 
+  const warnings = [];
+  if (!config.v8.enableIntrinsics) {
+    warnings.push('V8 intrinsics disabled — optimization status and trace counters are unavailable');
+  } else if (config.v8.forceOptimization === false) {
+    warnings.push('forceOptimization disabled — function may run interpreted; absolute timings will not reflect optimized code');
+  }
+  if (traceParserHealth === 'unknown_format') {
+    warnings.push('V8 --trace-opt format probe failed — optimization attempts/reasons may be empty even when V8 optimized the function');
+  }
+  if (streamDrainTimedOut) {
+    warnings.push('Child stdout/stderr did not drain within timeout — trailing optimization events may be missing');
+  }
+
   return {
     name: benchmark.name,
     timing: { ...stats, outliers: outliers.length, reliability, measurements: timings },
@@ -272,6 +285,7 @@ async function runInChild(benchmark, config) {
       sinkChecksum,
       traceParserHealth,
       streamDrainTimedOut,
+      warnings,
     },
   };
 }

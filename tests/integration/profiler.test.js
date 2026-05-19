@@ -138,6 +138,51 @@ describe('createProfiler / runBenchmarks (child-process integration)', () => {
     // %OptimizeFunctionOnNextCall. With forceOptimization off, it must not
     // appear regardless of whether V8 self-tier-ups the function during warmup.
     expect(result.optimization.reasons).not.toContain('manual');
+    expect(result.metadata.warnings).toEqual(
+      expect.arrayContaining([expect.stringContaining('forceOptimization disabled')])
+    );
+  });
+
+  it('should surface a warning when intrinsics are disabled via config', async () => {
+    const file = join(dir, 'bench.js');
+    await writeFile(file, `
+      export function hot() {
+        let s = 0;
+        for (let i = 0; i < 3000; i++) s += i;
+        return s;
+      }
+    `);
+
+    const noV8Config = {
+      ...FAST_CONFIG,
+      v8: { ...FAST_CONFIG.v8, enableIntrinsics: false, traceOptimization: false },
+    };
+    const profiler = await createProfiler(noV8Config);
+    const [result] = await profiler.runBenchmarks([
+      { name: 'hot', path: file, exportName: 'hot' },
+    ]);
+
+    expect(result.metadata.warnings).toEqual(
+      expect.arrayContaining([expect.stringContaining('V8 intrinsics disabled')])
+    );
+  });
+
+  it('should emit no warnings under the default healthy config', async () => {
+    const file = join(dir, 'bench.js');
+    await writeFile(file, `
+      export function hot() {
+        let s = 0;
+        for (let i = 0; i < 3000; i++) s += i;
+        return s;
+      }
+    `);
+
+    const profiler = await createProfiler(FAST_CONFIG);
+    const [result] = await profiler.runBenchmarks([
+      { name: 'hot', path: file, exportName: 'hot' },
+    ]);
+
+    expect(result.metadata.warnings).toEqual([]);
   });
 
   it('should expose optimization.forced=true under the default config', async () => {
