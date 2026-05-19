@@ -91,6 +91,7 @@ Available flags:
 | `--no-optimization` | Skip `%OptimizeFunctionOnNextCall` |
 | `--threshold <n>` | Outlier detection threshold (z-score, default `2`) |
 | `--filename <tpl>` | Filename template, supports `{timestamp}` |
+| `--run-order-check` | Rerun in reverse and flag the result set as order-dependent if the ranking flips (doubles wall-clock time) |
 
 > V8 intrinsics (`%GetOptimizationStatus`, `%OptimizeFunctionOnNextCall`) require Node to be started with `--allow-natives-syntax`. Without it the timing pipeline still works — you just lose the per-function optimization status block.
 
@@ -158,13 +159,22 @@ Reliability: high
 Mean: 0.58ms   Median: 0.56ms
 Reliability: high
 
-=== COMPARISON ===
-monomorphicCall is ≈ 1.4× faster than polymorphicCall
+=== PERFORMANCE COMPARISON ===
+polymorphicCall is 1.40× slower than monomorphicCall
+  moderately slower (40.2% difference, 99% confidence)
 ```
 
 Exact numbers will vary by hardware and V8 version, but on modern V8 the ratio typically lands in the 1.2–1.6× range — that is the pure IC cost, with allocation and GC held constant.
 
 The `example/hot.js` mixed workload reports a larger gap (often 2–3×) because it folds allocation pressure into the same measurement.
+
+## Async benchmarks
+
+Functions declared with `async`/that return a `Promise` are detected and awaited
+in the timing loop. Be aware that each iteration then includes one
+microtask/event-loop tick, so absolute numbers from async benchmarks are not
+directly comparable to sync ones — interpret the ratio between async
+benchmarks, not the raw means.
 
 ## Requirements
 
