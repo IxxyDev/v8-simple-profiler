@@ -9,7 +9,7 @@ export function hotLoop() {
       arr[i] = i;
       sum += arr[i];
     } else if (i < 50_000) {
-      arr[i] = "val" + i;
+      arr[i] = 'val' + i;
       sum += arr[i].length;
     } else if (i < 75_000) {
       arr[i] = { id: i, value: i * 2 };

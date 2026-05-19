@@ -18,11 +18,14 @@ describe('loadBenchmarks', () => {
 
   it('should return descriptors {name, path, exportName} for every function export', async () => {
     const file = join(dir, 'bench.js');
-    await writeFile(file, `
+    await writeFile(
+      file,
+      `
       export function a() { return 1; }
       export function b() { return 2; }
       export const notAFn = 42;
-    `);
+    `
+    );
     const benchmarks = await loadBenchmarks([file]);
     const names = benchmarks.map(b => b.name).sort();
     expect(names).toEqual(['a', 'b']);
@@ -32,10 +35,13 @@ describe('loadBenchmarks', () => {
 
   it('should return a single descriptor when path#name is given', async () => {
     const file = join(dir, 'bench.js');
-    await writeFile(file, `
+    await writeFile(
+      file,
+      `
       export function a() { return 'a'; }
       export function b() { return 'b'; }
-    `);
+    `
+    );
     const benchmarks = await loadBenchmarks([`${file}#b`]);
     expect(benchmarks).toHaveLength(1);
     expect(benchmarks[0]).toMatchObject({ name: 'b', exportName: 'b', path: file });
@@ -44,21 +50,22 @@ describe('loadBenchmarks', () => {
   it('should throw a helpful error when the named export is missing', async () => {
     const file = join(dir, 'bench.js');
     await writeFile(file, `export function a(){}`);
-    await expect(loadBenchmarks([`${file}#missing`]))
-      .rejects.toThrow(/missing.*is not a function/);
+    await expect(loadBenchmarks([`${file}#missing`])).rejects.toThrow(/missing.*is not a function/);
   });
 
   it('should throw when the file does not exist', async () => {
-    await expect(loadBenchmarks([join(dir, 'nope.js')]))
-      .rejects.toThrow(/not found/);
+    await expect(loadBenchmarks([join(dir, 'nope.js')])).rejects.toThrow(/not found/);
   });
 
   it('should report the default export under the name "default" with a sentinel', async () => {
     const file = join(dir, 'bench.js');
-    await writeFile(file, `
+    await writeFile(
+      file,
+      `
       export default function () { return 'd'; }
       export function named() { return 'n'; }
-    `);
+    `
+    );
     const benchmarks = await loadBenchmarks([file]);
     const byName = Object.fromEntries(benchmarks.map(b => [b.name, b]));
     expect(byName.default.exportName).toBe('__default__');

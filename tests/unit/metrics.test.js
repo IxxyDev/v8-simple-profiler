@@ -19,7 +19,7 @@ describe("Welch's t-test in compareResults", () => {
     // Two samples with very different variances — the case where Welch and
     // Student diverge most sharply. Hand-computed below.
     const a = [10, 10, 10, 10, 10, 10, 10, 10, 10, 10]; // mean 10, var 0
-    const b = [12, 14, 10, 16, 8, 18, 6, 20, 4, 22];   // mean 13, large var
+    const b = [12, 14, 10, 16, 8, 18, 6, 20, 4, 22]; // mean 13, large var
 
     const cmp = compareResults(asResult('a', a), asResult('b', b));
 
@@ -75,7 +75,7 @@ describe('tCriticalTwoSided lookup', () => {
   });
 
   it('should return df=4 90% critical value 2.1318 (±0.01)', () => {
-    expect(tCriticalTwoSided(4, 0.90)).toBeCloseTo(2.1318, 2);
+    expect(tCriticalTwoSided(4, 0.9)).toBeCloseTo(2.1318, 2);
   });
 
   it('should round non-integer df DOWN (conservative)', () => {
@@ -113,8 +113,8 @@ describe('df-aware significance', () => {
 
   it('should not flag two nearly-identical noisy streams as significant', () => {
     // n=10 each, mean ≈ 10 vs 10.1, with enough noise that Welch t is small.
-    const a = [9, 11, 8, 12, 7, 13, 9, 11, 8, 12];   // mean=10, large var
-    const b = [9, 11, 9, 11, 9, 11, 9, 11, 9, 11];   // mean=10, smaller var
+    const a = [9, 11, 8, 12, 7, 13, 9, 11, 8, 12]; // mean=10, large var
+    const b = [9, 11, 9, 11, 9, 11, 9, 11, 9, 11]; // mean=10, smaller var
     const cmp = compareResults(asResult('a', a), asResult('b', b));
     // Same mean, so t ≈ 0 → not significant regardless of df.
     expect(cmp.significance.significant).toBe(false);
@@ -272,8 +272,8 @@ describe('assessReliability 2-axis classifier', () => {
   it('should return high when both rseOfMean and cov are small', () => {
     // n=20, mean≈10, stdDev≈0.05 → cov≈0.005, rseOfMean≈0.001 → high.
     const stats = statsFromMeasurements([
-      10.0, 10.05, 9.95, 10.02, 9.98, 10.01, 9.99, 10.03, 9.97, 10.0,
-      10.0, 10.05, 9.95, 10.02, 9.98, 10.01, 9.99, 10.03, 9.97, 10.0,
+      10.0, 10.05, 9.95, 10.02, 9.98, 10.01, 9.99, 10.03, 9.97, 10.0, 10.0, 10.05, 9.95, 10.02,
+      9.98, 10.01, 9.99, 10.03, 9.97, 10.0,
     ]);
     expect(assessReliability(stats)).toBe('high');
   });
@@ -296,8 +296,8 @@ describe('assessReliability 2-axis classifier', () => {
     const measurements = [];
     for (let i = 0; i < 20; i++) measurements.push(i % 2 === 0 ? 8.5 : 11.5);
     const stats = statsFromMeasurements(measurements);
-    expect(stats.cov).toBeGreaterThan(0.10);
-    expect(stats.cov).toBeLessThan(0.30);
+    expect(stats.cov).toBeGreaterThan(0.1);
+    expect(stats.cov).toBeLessThan(0.3);
     expect(assessReliability(stats)).toBe('medium');
   });
 
@@ -306,7 +306,7 @@ describe('assessReliability 2-axis classifier', () => {
     const measurements = [];
     for (let i = 0; i < 20; i++) measurements.push(i % 2 === 0 ? 5 : 15);
     const stats = statsFromMeasurements(measurements);
-    expect(stats.cov).toBeGreaterThan(0.30);
+    expect(stats.cov).toBeGreaterThan(0.3);
     expect(assessReliability(stats)).toBe('low');
   });
 });
@@ -335,7 +335,7 @@ describe('Mann–Whitney U companion to Welch', () => {
   it('should not be applicable when either sample has n < 8', () => {
     const cmp = compareResults(
       asResult('a', [1, 2, 3, 4, 5]),
-      asResult('b', [6, 7, 8, 9, 10, 11, 12, 13, 14, 15]),
+      asResult('b', [6, 7, 8, 9, 10, 11, 12, 13, 14, 15])
     );
     expect(cmp.significance.mannWhitney).toBeDefined();
     expect(cmp.significance.mannWhitney.applicable).toBe(false);

@@ -66,19 +66,21 @@ function formatSingleResult(result, verbose) {
 
 function getReliabilityIcon(reliability) {
   switch (reliability) {
-    case 'high': return '🟢';
-    case 'medium': return '🟡';
-    case 'low': return '🔴';
-    default: return '⚪';
+    case 'high':
+      return '🟢';
+    case 'medium':
+      return '🟡';
+    case 'low':
+      return '🔴';
+    default:
+      return '⚪';
   }
 }
 
 function formatPerformanceComparison(results) {
   if (results.length < 2) return;
 
-  const sorted = [...results]
-    .filter(r => r.timing)
-    .sort((a, b) => a.timing.mean - b.timing.mean);
+  const sorted = [...results].filter(r => r.timing).sort((a, b) => a.timing.mean - b.timing.mean);
 
   console.log('\nPerformance Ranking:');
   sorted.forEach((result, index) => {
@@ -102,4 +104,3 @@ function formatPerformanceComparison(results) {
     }
   }
 }
-

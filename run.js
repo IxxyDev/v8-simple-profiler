@@ -5,15 +5,15 @@ import { formatConsoleReport } from './src/reporters/console.js';
 console.log('=== V8 DEOPTIMIZATION PROFILER ===\n');
 
 const benchmarks = [
-  { name: 'hotLoop',       path: resolve('./example/hot.js'), exportName: 'hotLoop' },
+  { name: 'hotLoop', path: resolve('./example/hot.js'), exportName: 'hotLoop' },
   { name: 'optimizedLoop', path: resolve('./example/hot.js'), exportName: 'optimizedLoop' },
 ];
 
 const config = {
   profiling: { warmupRuns: 10, testRuns: 1000, delayBetweenTests: 100 },
-  v8:        { enableIntrinsics: true, forceOptimization: true, traceOptimization: true },
-  output:    { format: 'console', verbose: false },
-  analysis:  { outlierThreshold: 2, showInsights: true },
+  v8: { enableIntrinsics: true, forceOptimization: true, traceOptimization: true },
+  output: { format: 'console', verbose: false },
+  analysis: { outlierThreshold: 2, showInsights: true },
 };
 
 try {

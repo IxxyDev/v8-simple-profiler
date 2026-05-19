@@ -61,6 +61,9 @@ export async function loadBenchmarks(specs = []) {
 
 // commander collector for repeated/comma-separated --benchmarks values.
 export function collectBenchmarkSpecs(value, previous = []) {
-  const parts = value.split(',').map(s => s.trim()).filter(Boolean);
+  const parts = value
+    .split(',')
+    .map(s => s.trim())
+    .filter(Boolean);
   return [...previous, ...parts];
 }

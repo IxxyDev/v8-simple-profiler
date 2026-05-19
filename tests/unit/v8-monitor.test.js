@@ -29,32 +29,38 @@ describe('V8 monitor (intrinsics)', () => {
     expect(hasIntrinsics).toBe(true);
   });
 
-  itIfIntrinsics('prepareForOptimization + optimizeOnNextCall mark the function for optimization', () => {
-    const fn = makeBenchmark();
+  itIfIntrinsics(
+    'prepareForOptimization + optimizeOnNextCall mark the function for optimization',
+    () => {
+      const fn = makeBenchmark();
 
-    expect(prepareForOptimization(fn)).toBe(true);
-    for (let i = 0; i < 20; i++) fn();
-    expect(optimizeOnNextCall(fn)).toBe(true);
-    fn(); // triggers compilation
+      expect(prepareForOptimization(fn)).toBe(true);
+      for (let i = 0; i < 20; i++) fn();
+      expect(optimizeOnNextCall(fn)).toBe(true);
+      fn(); // triggers compilation
 
-    const result = getOptimizationStatus(fn, 'bench');
-    expect(result.available).toBe(true);
-    // After a forced optimization pass we expect either the optimized bit or
-    // the top-tier turbofan bit to be set.
-    expect(result.flags.optimized || result.flags.is_topTierTurbofan).toBe(true);
-  });
+      const result = getOptimizationStatus(fn, 'bench');
+      expect(result.available).toBe(true);
+      // After a forced optimization pass we expect either the optimized bit or
+      // the top-tier turbofan bit to be set.
+      expect(result.flags.optimized || result.flags.is_topTierTurbofan).toBe(true);
+    }
+  );
 
-  itIfIntrinsics('forceOptimization composes prepare + optimize and survives a trigger call', () => {
-    const fn = makeBenchmark();
-    for (let i = 0; i < 5; i++) fn();
+  itIfIntrinsics(
+    'forceOptimization composes prepare + optimize and survives a trigger call',
+    () => {
+      const fn = makeBenchmark();
+      for (let i = 0; i < 5; i++) fn();
 
-    expect(forceOptimization(fn)).toBe(true);
-    fn(); // trigger
+      expect(forceOptimization(fn)).toBe(true);
+      fn(); // trigger
 
-    const status = getOptimizationStatus(fn, 'fn');
-    expect(status.available).toBe(true);
-    expect(status.flags).toBeTypeOf('object');
-  });
+      const status = getOptimizationStatus(fn, 'fn');
+      expect(status.available).toBe(true);
+      expect(status.flags).toBeTypeOf('object');
+    }
+  );
 
   itIfIntrinsics('getOptimizationStatus accepts a function reference (not just a name)', () => {
     const fn = makeBenchmark();
@@ -97,7 +103,7 @@ describe('V8 trace parsing', () => {
     const parser = createTraceParser();
     parser.ingestTraceChunkForTesting(
       '[marking 0x1 <JSFunction first (sfi = 0x2)> for optimization to MAGLEV, ConcurrencyMode::kConcurrent, reason: hot and stable]\n' +
-      '[marking 0x3 <JSFunction second (sfi = 0x4)> for optimization to MAGLEV, ConcurrencyMode::kConcurrent, reason: hot and stable]\n'
+        '[marking 0x3 <JSFunction second (sfi = 0x4)> for optimization to MAGLEV, ConcurrencyMode::kConcurrent, reason: hot and stable]\n'
     );
     expect(parser.optimizationInfo.has('first')).toBe(true);
     expect(parser.optimizationInfo.has('second')).toBe(true);
@@ -127,7 +133,7 @@ describe('V8 trace parsing', () => {
     const parser = createTraceParser();
     parser.ingestTraceChunkForTesting(
       '[marking 0x1 <JSFunction λBench (sfi = 0x2)> for optimization to MAGLEV, ConcurrencyMode::kConcurrent, reason: hot and stable]\n' +
-      '[marking 0x3 <JSFunction горячий (sfi = 0x4)> for optimization to TURBOFAN_JS, ConcurrencyMode::kSynchronous, reason: hot and stable]\n'
+        '[marking 0x3 <JSFunction горячий (sfi = 0x4)> for optimization to TURBOFAN_JS, ConcurrencyMode::kSynchronous, reason: hot and stable]\n'
     );
     expect(parser.optimizationInfo.has('λBench')).toBe(true);
     expect(parser.optimizationInfo.has('горячий')).toBe(true);

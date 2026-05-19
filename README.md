@@ -27,7 +27,7 @@ The headline example, `example/polymorphism-only.js`, isolates inline-cache cost
 - **`monomorphicCall`** — reads `.x` from a pre-allocated 4-element array whose objects share one hidden class. V8's IC at the access site stays monomorphic.
 - **`polymorphicCall`** — reads `.x` from a pre-allocated 4-element array whose objects have 4 distinct hidden classes. Same accessor, same iteration count, same allocation footprint; only the IC degrades to a 4-way polymorphic lookup.
 
-A second, larger example (`example/hot.js`) is included as a "mixed workload" demo. It pairs `hotLoop` (polymorphic, allocating four different value types into an array) against `optimizedLoop` (monomorphic numbers). Its ratio reflects *both* IC degradation *and* allocation/GC pressure, so it tends to look more dramatic than a pure IC effect — handy for showing the combined cost, but not a clean comparison.
+A second, larger example (`example/hot.js`) is included as a "mixed workload" demo. It pairs `hotLoop` (polymorphic, allocating four different value types into an array) against `optimizedLoop` (monomorphic numbers). Its ratio reflects _both_ IC degradation _and_ allocation/GC pressure, so it tends to look more dramatic than a pure IC effect — handy for showing the combined cost, but not a clean comparison.
 
 The profiler reports:
 
@@ -79,20 +79,20 @@ npm run benchmark:csv    # writes CSV to ./reports/
 
 Available flags:
 
-| Flag | Description |
-| --- | --- |
-| `-c, --config <path>` | Path to config file (`.json`, `.js`, `.mjs`) |
-| `-f, --format <type>` | `console` (default), `json`, `csv`, or `all` |
-| `-o, --output <dir>` | Output directory for file reports (default `./reports`) |
-| `-w, --warmup <runs>` | Warm-up iterations |
-| `-r, --runs <count>` | Measurement iterations |
-| `-d, --delay <ms>` | Delay between functions |
-| `-v, --verbose` | Include percentiles, outliers, stack traces on errors |
-| `--no-v8` | Disable V8 intrinsics |
-| `--no-optimization` | Skip `%OptimizeFunctionOnNextCall` |
-| `--threshold <n>` | Outlier detection threshold (z-score, default `2`) |
-| `--filename <tpl>` | Filename template, supports `{timestamp}` |
-| `--run-order-check` | Rerun in reverse and flag the result set as order-dependent if the ranking flips (doubles wall-clock time) |
+| Flag                  | Description                                                                                                |
+| --------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `-c, --config <path>` | Path to config file (`.json`, `.js`, `.mjs`)                                                               |
+| `-f, --format <type>` | `console` (default), `json`, `csv`, or `all`                                                               |
+| `-o, --output <dir>`  | Output directory for file reports (default `./reports`)                                                    |
+| `-w, --warmup <runs>` | Warm-up iterations                                                                                         |
+| `-r, --runs <count>`  | Measurement iterations                                                                                     |
+| `-d, --delay <ms>`    | Delay between functions                                                                                    |
+| `-v, --verbose`       | Include percentiles, outliers, stack traces on errors                                                      |
+| `--no-v8`             | Disable V8 intrinsics                                                                                      |
+| `--no-optimization`   | Skip `%OptimizeFunctionOnNextCall`                                                                         |
+| `--threshold <n>`     | Outlier detection threshold (z-score, default `2`)                                                         |
+| `--filename <tpl>`    | Filename template, supports `{timestamp}`                                                                  |
+| `--run-order-check`   | Rerun in reverse and flag the result set as order-dependent if the ranking flips (doubles wall-clock time) |
 
 > V8 intrinsics (`%GetOptimizationStatus`, `%OptimizeFunctionOnNextCall`) require Node to be started with `--allow-natives-syntax`. Without it the timing pipeline still works — you just lose the per-function optimization status block.
 

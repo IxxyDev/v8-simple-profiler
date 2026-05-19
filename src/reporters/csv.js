@@ -3,11 +3,7 @@ import { dirname, resolve } from 'node:path';
 import { existsSync } from 'node:fs';
 
 export function formatCsvReport(results, options = {}) {
-  const {
-    includeOptimization = true,
-    includePercentiles = false,
-    delimiter = ','
-  } = options;
+  const { includeOptimization = true, includePercentiles = false, delimiter = ',' } = options;
 
   const headers = [
     'name',
@@ -19,7 +15,7 @@ export function formatCsvReport(results, options = {}) {
     'std_dev_ms',
     'reliability',
     'outliers',
-    'total_measurements'
+    'total_measurements',
   ];
 
   if (includePercentiles) {
@@ -39,7 +35,9 @@ export function formatCsvReport(results, options = {}) {
     rows.push(row);
   }
 
-  return rows.map(row => row.map(cell => escapeCsvCell(cell, delimiter)).join(delimiter)).join('\n');
+  return rows
+    .map(row => row.map(cell => escapeCsvCell(cell, delimiter)).join(delimiter))
+    .join('\n');
 }
 
 function formatResultRow(result, options) {
@@ -55,7 +53,7 @@ function formatResultRow(result, options) {
     result.timing?.stdDev ?? '',
     result.timing?.reliability ?? '',
     result.timing?.outliers ?? '',
-    result.timing?.count ?? ''
+    result.timing?.count ?? '',
   ];
 
   if (includePercentiles) {

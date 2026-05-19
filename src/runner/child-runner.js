@@ -44,12 +44,18 @@ let __sink = 0;
 
 function consume(v) {
   switch (typeof v) {
-    case 'number': return (v | 0) ^ 0x9e3779b1;
-    case 'string': return (v.length | 0) ^ 0x85ebca6b;
-    case 'boolean': return v ? 0x27d4eb2f : 0xc2b2ae35;
-    case 'object': return v === null ? 0x165667b1 : 0xd3a2646c;
-    case 'undefined': return 0x52dce729;
-    default: return 0x38ebc6af;
+    case 'number':
+      return (v | 0) ^ 0x9e3779b1;
+    case 'string':
+      return (v.length | 0) ^ 0x85ebca6b;
+    case 'boolean':
+      return v ? 0x27d4eb2f : 0xc2b2ae35;
+    case 'object':
+      return v === null ? 0x165667b1 : 0xd3a2646c;
+    case 'undefined':
+      return 0x52dce729;
+    default:
+      return 0x38ebc6af;
   }
 }
 
@@ -66,8 +72,16 @@ async function main() {
 
   const warmupRuns = Number(warmupRunsStr);
   const testRuns = Number(testRunsStr);
-  if (!Number.isFinite(warmupRuns) || !Number.isFinite(testRuns) || warmupRuns < 0 || testRuns < 1) {
-    send({ type: 'error', message: `child-runner: invalid warmup/test counts (${warmupRunsStr}, ${testRunsStr})` });
+  if (
+    !Number.isFinite(warmupRuns) ||
+    !Number.isFinite(testRuns) ||
+    warmupRuns < 0 ||
+    testRuns < 1
+  ) {
+    send({
+      type: 'error',
+      message: `child-runner: invalid warmup/test counts (${warmupRunsStr}, ${testRunsStr})`,
+    });
     process.exit(2);
   }
 
@@ -77,13 +91,20 @@ async function main() {
   try {
     mod = await import(pathToFileURL(benchmarkPath).href);
   } catch (err) {
-    send({ type: 'error', message: `Failed to import benchmark: ${err.message}`, stack: err.stack });
+    send({
+      type: 'error',
+      message: `Failed to import benchmark: ${err.message}`,
+      stack: err.stack,
+    });
     process.exit(1);
   }
 
   const fn = exportName === DEFAULT_EXPORT_SENTINEL ? mod.default : mod[exportName];
   if (typeof fn !== 'function') {
-    send({ type: 'error', message: `Export "${exportName}" is not a function in ${benchmarkPath}` });
+    send({
+      type: 'error',
+      message: `Export "${exportName}" is not a function in ${benchmarkPath}`,
+    });
     process.exit(1);
   }
 
@@ -170,9 +191,7 @@ async function main() {
     process.exit(1);
   }
 
-  const optimizationStatus = intrinsicsAvailable
-    ? getOptimizationStatus(fn)
-    : { available: false };
+  const optimizationStatus = intrinsicsAvailable ? getOptimizationStatus(fn) : { available: false };
 
   send({
     type: 'result',

@@ -22,12 +22,7 @@ export function monomorphicCall() {
 }
 
 export function polymorphicCall() {
-  const shapes = [
-    { x: 1 },
-    { x: 1, y: 2 },
-    { x: 1, y: 2, z: 3 },
-    { x: 1, y: 2, z: 3, w: 4 },
-  ];
+  const shapes = [{ x: 1 }, { x: 1, y: 2 }, { x: 1, y: 2, z: 3 }, { x: 1, y: 2, z: 3, w: 4 }];
   let sum = 0;
   for (let i = 0; i < ITERATIONS; i++) {
     sum += readX(shapes[i & 3]);

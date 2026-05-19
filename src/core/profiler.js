@@ -175,10 +175,19 @@ async function runInChild(benchmark, config) {
       rej(err);
     };
 
-    child.on('message', m => { received = m; tryResolve(); });
+    child.on('message', m => {
+      received = m;
+      tryResolve();
+    });
     child.on('error', fail);
-    stdoutRl.on('close', () => { stdoutClosed = true; tryResolve(); });
-    stderrRl.on('close', () => { stderrClosed = true; tryResolve(); });
+    stdoutRl.on('close', () => {
+      stdoutClosed = true;
+      tryResolve();
+    });
+    stderrRl.on('close', () => {
+      stderrClosed = true;
+      tryResolve();
+    });
     child.on('exit', code => {
       if (!received) {
         fail(new Error(`Benchmark child exited (${code}) without sending a result`));
@@ -248,15 +257,23 @@ async function runInChild(benchmark, config) {
 
   const warnings = [];
   if (!config.v8.enableIntrinsics) {
-    warnings.push('V8 intrinsics disabled — optimization status and trace counters are unavailable');
+    warnings.push(
+      'V8 intrinsics disabled — optimization status and trace counters are unavailable'
+    );
   } else if (config.v8.forceOptimization === false) {
-    warnings.push('forceOptimization disabled — function may run interpreted; absolute timings will not reflect optimized code');
+    warnings.push(
+      'forceOptimization disabled — function may run interpreted; absolute timings will not reflect optimized code'
+    );
   }
   if (traceParserHealth === 'unknown_format') {
-    warnings.push('V8 --trace-opt format probe failed — optimization attempts/reasons may be empty even when V8 optimized the function');
+    warnings.push(
+      'V8 --trace-opt format probe failed — optimization attempts/reasons may be empty even when V8 optimized the function'
+    );
   }
   if (streamDrainTimedOut) {
-    warnings.push('Child stdout/stderr did not drain within timeout — trailing optimization events may be missing');
+    warnings.push(
+      'Child stdout/stderr did not drain within timeout — trailing optimization events may be missing'
+    );
   }
 
   return {

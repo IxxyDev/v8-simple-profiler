@@ -3,24 +3,24 @@ export default {
   profiling: {
     warmupRuns: 15,
     testRuns: 500,
-    delayBetweenTests: 100
+    delayBetweenTests: 100,
   },
 
   output: {
     format: 'console',
     directory: './reports',
     filename: 'benchmark-{timestamp}',
-    verbose: true
+    verbose: true,
   },
 
   analysis: {
     outlierThreshold: 2.5,
-    showInsights: true
+    showInsights: true,
   },
 
   v8: {
     enableIntrinsics: true,
     forceOptimization: true,
-    traceOptimization: true
-  }
+    traceOptimization: true,
+  },
 };

@@ -27,18 +27,19 @@ describe('createProfiler / runBenchmarks (child-process integration)', () => {
 
   it('should run a benchmark in a forked child and return timings + optimization status', async () => {
     const file = join(dir, 'bench.js');
-    await writeFile(file, `
+    await writeFile(
+      file,
+      `
       export function hot() {
         let s = 0;
         for (let i = 0; i < 5000; i++) s += i;
         return s;
       }
-    `);
+    `
+    );
 
     const profiler = await createProfiler(FAST_CONFIG);
-    const [result] = await profiler.runBenchmarks([
-      { name: 'hot', path: file, exportName: 'hot' },
-    ]);
+    const [result] = await profiler.runBenchmarks([{ name: 'hot', path: file, exportName: 'hot' }]);
 
     expect(result.name).toBe('hot');
     expect(result.timing).toBeTypeOf('object');
@@ -47,8 +48,7 @@ describe('createProfiler / runBenchmarks (child-process integration)', () => {
     // The child force-optimized via %OptimizeFunctionOnNextCall, so at least
     // one of these tier flags should be set.
     expect(
-      result.optimization.flags.optimized ||
-      result.optimization.flags.is_topTierTurbofan
+      result.optimization.flags.optimized || result.optimization.flags.is_topTierTurbofan
     ).toBe(true);
     // The parent parsed V8 stdout trace and attributed at least the manual
     // marking event to this function.
@@ -71,13 +71,16 @@ describe('createProfiler / runBenchmarks (child-process integration)', () => {
 
   it('should attribute trace events for named default exports by fn.name, not sentinel', async () => {
     const file = join(dir, 'bench.js');
-    await writeFile(file, `
+    await writeFile(
+      file,
+      `
       export default function namedDefault() {
         let s = 0;
         for (let i = 0; i < 3000; i++) s += i;
         return s;
       }
-    `);
+    `
+    );
 
     const profiler = await createProfiler(FAST_CONFIG);
     const [result] = await profiler.runBenchmarks([
@@ -93,13 +96,16 @@ describe('createProfiler / runBenchmarks (child-process integration)', () => {
     // so .name becomes 'default'. We need an IIFE-returned function to
     // exercise the genuinely nameless (fn.name === '') case.
     const file = join(dir, 'bench.js');
-    await writeFile(file, `
+    await writeFile(
+      file,
+      `
       export default (() => () => {
         let s = 0;
         for (let i = 0; i < 3000; i++) s += i;
         return s;
       })();
-    `);
+    `
+    );
 
     const profiler = await createProfiler(FAST_CONFIG);
     const [result] = await profiler.runBenchmarks([
@@ -112,22 +118,23 @@ describe('createProfiler / runBenchmarks (child-process integration)', () => {
 
   it('should honor v8.forceOptimization=false: no manual optimize, optimization.forced exposed', async () => {
     const file = join(dir, 'bench.js');
-    await writeFile(file, `
+    await writeFile(
+      file,
+      `
       export function hot() {
         let s = 0;
         for (let i = 0; i < 3000; i++) s += i;
         return s;
       }
-    `);
+    `
+    );
 
     const noOptConfig = {
       ...FAST_CONFIG,
       v8: { ...FAST_CONFIG.v8, forceOptimization: false },
     };
     const profiler = await createProfiler(noOptConfig);
-    const [result] = await profiler.runBenchmarks([
-      { name: 'hot', path: file, exportName: 'hot' },
-    ]);
+    const [result] = await profiler.runBenchmarks([{ name: 'hot', path: file, exportName: 'hot' }]);
 
     expect(result.optimization.forced).toBe(false);
     // The 'manual' reason is only recorded when the child invoked
@@ -141,22 +148,23 @@ describe('createProfiler / runBenchmarks (child-process integration)', () => {
 
   it('should surface a warning when intrinsics are disabled via config', async () => {
     const file = join(dir, 'bench.js');
-    await writeFile(file, `
+    await writeFile(
+      file,
+      `
       export function hot() {
         let s = 0;
         for (let i = 0; i < 3000; i++) s += i;
         return s;
       }
-    `);
+    `
+    );
 
     const noV8Config = {
       ...FAST_CONFIG,
       v8: { ...FAST_CONFIG.v8, enableIntrinsics: false, traceOptimization: false },
     };
     const profiler = await createProfiler(noV8Config);
-    const [result] = await profiler.runBenchmarks([
-      { name: 'hot', path: file, exportName: 'hot' },
-    ]);
+    const [result] = await profiler.runBenchmarks([{ name: 'hot', path: file, exportName: 'hot' }]);
 
     expect(result.metadata.warnings).toEqual(
       expect.arrayContaining([expect.stringContaining('V8 intrinsics disabled')])
@@ -165,49 +173,54 @@ describe('createProfiler / runBenchmarks (child-process integration)', () => {
 
   it('should emit no warnings under the default healthy config', async () => {
     const file = join(dir, 'bench.js');
-    await writeFile(file, `
+    await writeFile(
+      file,
+      `
       export function hot() {
         let s = 0;
         for (let i = 0; i < 3000; i++) s += i;
         return s;
       }
-    `);
+    `
+    );
 
     const profiler = await createProfiler(FAST_CONFIG);
-    const [result] = await profiler.runBenchmarks([
-      { name: 'hot', path: file, exportName: 'hot' },
-    ]);
+    const [result] = await profiler.runBenchmarks([{ name: 'hot', path: file, exportName: 'hot' }]);
 
     expect(result.metadata.warnings).toEqual([]);
   });
 
   it('should expose optimization.forced=true under the default config', async () => {
     const file = join(dir, 'bench.js');
-    await writeFile(file, `
+    await writeFile(
+      file,
+      `
       export function hot() {
         let s = 0;
         for (let i = 0; i < 3000; i++) s += i;
         return s;
       }
-    `);
+    `
+    );
 
     const profiler = await createProfiler(FAST_CONFIG);
-    const [result] = await profiler.runBenchmarks([
-      { name: 'hot', path: file, exportName: 'hot' },
-    ]);
+    const [result] = await profiler.runBenchmarks([{ name: 'hot', path: file, exportName: 'hot' }]);
 
     expect(result.optimization.forced).toBe(true);
   });
 
   it('should report executionMode="sync" for a synchronous benchmark', async () => {
     const file = join(dir, 'bench.js');
-    await writeFile(file, `
+    await writeFile(
+      file,
+      `
       export function syncFn() {
         let s = 0;
         for (let i = 0; i < 2000; i++) s += i;
         return s;
       }
-    `);
+    `
+    );
 
     const profiler = await createProfiler(FAST_CONFIG);
     const [result] = await profiler.runBenchmarks([
@@ -220,13 +233,16 @@ describe('createProfiler / runBenchmarks (child-process integration)', () => {
 
   it('should report executionMode="async" for an async benchmark', async () => {
     const file = join(dir, 'bench.js');
-    await writeFile(file, `
+    await writeFile(
+      file,
+      `
       export async function asyncFn() {
         let s = 0;
         for (let i = 0; i < 2000; i++) s += i;
         return s;
       }
-    `);
+    `
+    );
 
     const profiler = await createProfiler(FAST_CONFIG);
     const [result] = await profiler.runBenchmarks([
@@ -268,7 +284,9 @@ describe('createProfiler / runBenchmarks (child-process integration)', () => {
     // 200k tight-loop iterations JITs to sub-ms on modern CPUs; nest two loops
     // so per-call time comfortably exceeds TARGET_BATCH_MS regardless of host.
     const file = join(dir, 'bench.js');
-    await writeFile(file, `
+    await writeFile(
+      file,
+      `
       export function slowFn() {
         let s = 0;
         for (let k = 0; k < 50; k++) {
@@ -276,7 +294,8 @@ describe('createProfiler / runBenchmarks (child-process integration)', () => {
         }
         return s;
       }
-    `);
+    `
+    );
 
     const profiler = await createProfiler(FAST_CONFIG);
     const [result] = await profiler.runBenchmarks([
@@ -290,14 +309,17 @@ describe('createProfiler / runBenchmarks (child-process integration)', () => {
 
   it('should isolate trace counters between benchmarks (no bleed-through)', async () => {
     const file = join(dir, 'bench.js');
-    await writeFile(file, `
+    await writeFile(
+      file,
+      `
       export function first()  { let s=0; for (let i=0;i<3000;i++) s+=i; return s; }
       export function second() { let s=0; for (let i=0;i<3000;i++) s+=i; return s; }
-    `);
+    `
+    );
 
     const profiler = await createProfiler(FAST_CONFIG);
     const results = await profiler.runBenchmarks([
-      { name: 'first',  path: file, exportName: 'first'  },
+      { name: 'first', path: file, exportName: 'first' },
       { name: 'second', path: file, exportName: 'second' },
     ]);
 
@@ -318,7 +340,8 @@ describe('createProfiler / runBenchmarks (child-process integration)', () => {
     // verify the gate keeps the line out.
     const { isV8TraceLine } = await import('../../src/core/profiler.js');
     const parser = createTraceParser();
-    const userLog = 'debug: [marking 0x123 <JSFunction phantomFn (sfi = 0x42)> for optimization to TURBOFAN_JS, ConcurrencyMode::kSynchronous]';
+    const userLog =
+      'debug: [marking 0x123 <JSFunction phantomFn (sfi = 0x42)> for optimization to TURBOFAN_JS, ConcurrencyMode::kSynchronous]';
     if (isV8TraceLine(userLog)) parser.parseTraceLine(userLog);
     expect(parser.optimizationInfo.has('phantomFn')).toBe(false);
   });
@@ -331,13 +354,16 @@ describe('createProfiler / runBenchmarks (child-process integration)', () => {
     // successful resolve with attempts >= 1 demonstrates the drain wait did
     // not strand the message.
     const file = join(dir, 'bench.js');
-    await writeFile(file, `
+    await writeFile(
+      file,
+      `
       export function heavy() {
         let s = 0;
         for (let i = 0; i < 50000; i++) s += i * 3;
         return s;
       }
-    `);
+    `
+    );
 
     const profiler = await createProfiler(FAST_CONFIG);
     const [result] = await profiler.runBenchmarks([
@@ -354,7 +380,9 @@ describe('createProfiler / runBenchmarks (child-process integration)', () => {
     // cannot plausibly flip the ranking. The flag should run both passes
     // (forward + reverse) and leave orderDependent unset on every result.
     const file = join(dir, 'bench.js');
-    await writeFile(file, `
+    await writeFile(
+      file,
+      `
       export function fast() { return 1; }
       export function slow() {
         let s = 0;
@@ -363,7 +391,8 @@ describe('createProfiler / runBenchmarks (child-process integration)', () => {
         }
         return s;
       }
-    `);
+    `
+    );
 
     const profiler = await createProfiler({
       ...FAST_CONFIG,
@@ -382,10 +411,13 @@ describe('createProfiler / runBenchmarks (child-process integration)', () => {
 
   it('should not perform a second pass when runOrderCheck is off', async () => {
     const file = join(dir, 'bench.js');
-    await writeFile(file, `
+    await writeFile(
+      file,
+      `
       export function a() { return 1; }
       export function b() { return 2; }
-    `);
+    `
+    );
 
     const profiler = await createProfiler(FAST_CONFIG);
     const results = await profiler.runBenchmarks([
@@ -401,30 +433,39 @@ describe('createProfiler / runBenchmarks (child-process integration)', () => {
 
   it('should report traceParserHealth="ok" on a normal run', async () => {
     const file = join(dir, 'bench.js');
-    await writeFile(file, `
+    await writeFile(
+      file,
+      `
       export function hot() {
         let s = 0;
         for (let i = 0; i < 3000; i++) s += i;
         return s;
       }
-    `);
+    `
+    );
 
     const profiler = await createProfiler(FAST_CONFIG);
-    const [result] = await profiler.runBenchmarks([
-      { name: 'hot', path: file, exportName: 'hot' },
-    ]);
+    const [result] = await profiler.runBenchmarks([{ name: 'hot', path: file, exportName: 'hot' }]);
 
     expect(result.metadata.traceParserHealth).toBe('ok');
   });
 
   it('should still parse real V8 trace lines through parseTraceLine', () => {
     const parser = createTraceParser();
-    parser.parseTraceLine('[marking 0x123 <JSFunction realName (sfi = 0x42)> for optimization to TURBOFAN_JS, ConcurrencyMode::kSynchronous]');
-    parser.parseTraceLine('[manually marking 0x123 <JSFunction manualName (sfi = 0x42)> for optimization to TURBOFAN_JS, ConcurrencyMode::kSynchronous]');
-    parser.parseTraceLine('[bailout (kind: deopt-soft, reason: Insufficient type feedback): begin. deoptimizing <JSFunction bailName (sfi = 0x42)>]');
+    parser.parseTraceLine(
+      '[marking 0x123 <JSFunction realName (sfi = 0x42)> for optimization to TURBOFAN_JS, ConcurrencyMode::kSynchronous]'
+    );
+    parser.parseTraceLine(
+      '[manually marking 0x123 <JSFunction manualName (sfi = 0x42)> for optimization to TURBOFAN_JS, ConcurrencyMode::kSynchronous]'
+    );
+    parser.parseTraceLine(
+      '[bailout (kind: deopt-soft, reason: Insufficient type feedback): begin. deoptimizing <JSFunction bailName (sfi = 0x42)>]'
+    );
 
     expect(parser.optimizationInfo.get('realName')?.attempts).toBe(1);
     expect(parser.optimizationInfo.get('manualName')?.attempts).toBe(1);
-    expect(parser.optimizationInfo.get('bailName')?.deoptReasons).toContain('Insufficient type feedback');
+    expect(parser.optimizationInfo.get('bailName')?.deoptReasons).toContain(
+      'Insufficient type feedback'
+    );
   });
 });

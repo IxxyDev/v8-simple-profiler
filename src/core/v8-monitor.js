@@ -6,8 +6,10 @@
 //
 // Anonymous functions appear as `<JSFunction (sfi = …)>` (no name) and are
 // intentionally skipped — there is no identifier to attribute counters to.
-const OPT_PATTERN = /\[(?:manually\s+)?marking\s+0x[0-9a-f]+\s+<JSFunction\s+([^\s<>(]+)\s+\([^)]*\)>\s+for optimization to\s+([A-Z_]+)([^\]]*)\]/g;
-const DEOPT_PATTERN = /\[bailout\s+\(kind:\s*([^,]+),\s*reason:\s*([^)]+)\):[^<]*<JSFunction\s+([^\s<>(]+)\s+\([^)]*\)>/g;
+const OPT_PATTERN =
+  /\[(?:manually\s+)?marking\s+0x[0-9a-f]+\s+<JSFunction\s+([^\s<>(]+)\s+\([^)]*\)>\s+for optimization to\s+([A-Z_]+)([^\]]*)\]/g;
+const DEOPT_PATTERN =
+  /\[bailout\s+\(kind:\s*([^,]+),\s*reason:\s*([^)]+)\):[^<]*<JSFunction\s+([^\s<>(]+)\s+\([^)]*\)>/g;
 const REASON_TAIL = /reason:\s*(.+?)\s*$/;
 
 // Each profiling run owns its own parser instance so trace events from one
@@ -114,7 +116,7 @@ export function getOptimizationStatus(fn) {
   } catch (error) {
     return {
       available: false,
-      error: error.message
+      error: error.message,
     };
   }
 }
@@ -187,7 +189,9 @@ export function getOptimizationInsights(result) {
   const insights = [];
 
   if (!result.optimization.available) {
-    insights.push('V8 intrinsics not available - run with --allow-natives-syntax for detailed analysis');
+    insights.push(
+      'V8 intrinsics not available - run with --allow-natives-syntax for detailed analysis'
+    );
     return insights;
   }
 
