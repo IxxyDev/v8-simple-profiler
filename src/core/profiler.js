@@ -25,10 +25,6 @@ export async function createProfiler(options = {}) {
 
   return {
     config,
-    // Kept for backward compatibility with the CLI's pre-flight log. Intrinsics
-    // run in the child now, so the answer is always "yes" unless the user
-    // disabled them via config.
-    v8Available: !!config.v8.enableIntrinsics,
 
     async runBenchmarks(benchmarks) {
       const forwardResults = await runSequence(benchmarks, config);
@@ -287,7 +283,6 @@ async function runInChild(benchmark, config) {
 
 // V8 --trace-opt / --trace-deopt records always open with one of these
 // prefixes. Filtering at the readline boundary stops user console.log output
-// Exported for testing — production consumers use it via runInChild.
 // (which shares stdout/stderr with V8's trace stream) from being misread as
 // optimization events when it happens to contain `<JSFunction …>`.
 export function isV8TraceLine(line) {
