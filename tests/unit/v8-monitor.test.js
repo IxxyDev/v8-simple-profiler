@@ -1,14 +1,11 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import {
   isV8IntrinsicsAvailable,
   prepareForOptimization,
   optimizeOnNextCall,
   forceOptimization,
   getOptimizationStatus,
-  clearOptimizationData,
-  optimizationInfo,
-  deoptedFunctions,
-  ingestTraceChunkForTesting,
+  createTraceParser,
   getOptimizationInsights,
 } from '../../src/core/v8-monitor.js';
 
@@ -25,8 +22,6 @@ function makeBenchmark() {
 }
 
 describe('V8 monitor (intrinsics)', () => {
-  beforeEach(() => clearOptimizationData());
-
   it('should return a boolean from isV8IntrinsicsAvailable that matches harness flag', () => {
     expect(typeof hasIntrinsics).toBe('boolean');
     // The vitest config passes --allow-natives-syntax to the fork pool, so
@@ -70,68 +65,83 @@ describe('V8 monitor (intrinsics)', () => {
 });
 
 describe('V8 trace parsing', () => {
-  beforeEach(() => clearOptimizationData());
-
   it('should parse a complete optimization line', () => {
-    ingestTraceChunkForTesting(
+    const parser = createTraceParser();
+    parser.ingestTraceChunkForTesting(
       '[marking 0x22bac9112da1 <JSFunction hotLoop (sfi = 0x157c3d9067b1)> for optimization to MAGLEV, ConcurrencyMode::kConcurrent, reason: hot and stable]\n'
     );
-    expect(optimizationInfo.has('hotLoop')).toBe(true);
-    const info = optimizationInfo.get('hotLoop');
+    expect(parser.optimizationInfo.has('hotLoop')).toBe(true);
+    const info = parser.optimizationInfo.get('hotLoop');
     expect(info.attempts).toBe(1);
     expect(info.reasons[0]).toContain('hot and stable');
   });
 
   it('should parse a complete deopt line', () => {
-    ingestTraceChunkForTesting(
+    const parser = createTraceParser();
+    parser.ingestTraceChunkForTesting(
       '[bailout (kind: deopt-eager, reason: wrong map): begin. deoptimizing 0x134c0d6165b9 <JSFunction next (sfi = 0x2f28637093c9)>, 0x3d4fef2817c9 <Code MAGLEV>, opt id 2, bytecode offset 3, deopt exit 0, FP to SP delta 32, caller SP 0x00016d8cdb38, pc 0x000118f02814]\n'
     );
-    expect(deoptedFunctions.has('next')).toBe(true);
+    expect(parser.deoptedFunctions.has('next')).toBe(true);
   });
 
   it('should parse a complete optimization line delivered as one chunk', () => {
-    ingestTraceChunkForTesting(
+    const parser = createTraceParser();
+    parser.ingestTraceChunkForTesting(
       '[marking 0x1 <JSFunction split (sfi = 0x2)> for optimization to TURBOFAN, ConcurrencyMode::kConcurrent, reason: hot and stable]\n'
     );
-    expect(optimizationInfo.has('split')).toBe(true);
-    expect(optimizationInfo.get('split').attempts).toBe(1);
+    expect(parser.optimizationInfo.has('split')).toBe(true);
+    expect(parser.optimizationInfo.get('split').attempts).toBe(1);
   });
 
   it('should parse multiple events arriving in one chunk', () => {
-    ingestTraceChunkForTesting(
+    const parser = createTraceParser();
+    parser.ingestTraceChunkForTesting(
       '[marking 0x1 <JSFunction first (sfi = 0x2)> for optimization to MAGLEV, ConcurrencyMode::kConcurrent, reason: hot and stable]\n' +
       '[marking 0x3 <JSFunction second (sfi = 0x4)> for optimization to MAGLEV, ConcurrencyMode::kConcurrent, reason: hot and stable]\n'
     );
-    expect(optimizationInfo.has('first')).toBe(true);
-    expect(optimizationInfo.has('second')).toBe(true);
+    expect(parser.optimizationInfo.has('first')).toBe(true);
+    expect(parser.optimizationInfo.has('second')).toBe(true);
   });
 
   it('should parse a manually-triggered optimization line (no reason field)', () => {
-    ingestTraceChunkForTesting(
+    const parser = createTraceParser();
+    parser.ingestTraceChunkForTesting(
       '[manually marking 0x274bf386b5a1 <JSFunction hotLoop (sfi = 0x274bf3869381)> for optimization to TURBOFAN_JS, ConcurrencyMode::kSynchronous]\n'
     );
-    expect(optimizationInfo.has('hotLoop')).toBe(true);
-    const info = optimizationInfo.get('hotLoop');
+    expect(parser.optimizationInfo.has('hotLoop')).toBe(true);
+    const info = parser.optimizationInfo.get('hotLoop');
     expect(info.attempts).toBe(1);
     expect(info.tiers).toContain('TURBOFAN_JS');
     expect(info.reasons[0]).toBe('manual');
   });
 
   it('should ignore anonymous JSFunction events (no name to attribute)', () => {
-    ingestTraceChunkForTesting(
+    const parser = createTraceParser();
+    parser.ingestTraceChunkForTesting(
       '[marking 0x1 <JSFunction (sfi = 0x2)> for optimization to MAGLEV, ConcurrencyMode::kConcurrent, reason: hot and stable]\n'
     );
-    expect(optimizationInfo.size).toBe(0);
+    expect(parser.optimizationInfo.size).toBe(0);
   });
 
   it('should attribute trace events to functions with non-ASCII names', () => {
-    ingestTraceChunkForTesting(
+    const parser = createTraceParser();
+    parser.ingestTraceChunkForTesting(
       '[marking 0x1 <JSFunction λBench (sfi = 0x2)> for optimization to MAGLEV, ConcurrencyMode::kConcurrent, reason: hot and stable]\n' +
       '[marking 0x3 <JSFunction горячий (sfi = 0x4)> for optimization to TURBOFAN_JS, ConcurrencyMode::kSynchronous, reason: hot and stable]\n'
     );
-    expect(optimizationInfo.has('λBench')).toBe(true);
-    expect(optimizationInfo.has('горячий')).toBe(true);
-    expect(optimizationInfo.get('горячий').tiers).toContain('TURBOFAN_JS');
+    expect(parser.optimizationInfo.has('λBench')).toBe(true);
+    expect(parser.optimizationInfo.has('горячий')).toBe(true);
+    expect(parser.optimizationInfo.get('горячий').tiers).toContain('TURBOFAN_JS');
+  });
+
+  it('should isolate state across independent parser instances', () => {
+    const a = createTraceParser();
+    const b = createTraceParser();
+    a.ingestTraceChunkForTesting(
+      '[marking 0x1 <JSFunction only_in_a (sfi = 0x2)> for optimization to MAGLEV, ConcurrencyMode::kConcurrent, reason: hot and stable]\n'
+    );
+    expect(a.optimizationInfo.has('only_in_a')).toBe(true);
+    expect(b.optimizationInfo.has('only_in_a')).toBe(false);
   });
 });
 

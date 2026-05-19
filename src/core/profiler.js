@@ -3,12 +3,7 @@ import readline from 'node:readline';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 
-import {
-  parseTraceLine,
-  optimizationInfo,
-  deoptedFunctions,
-  clearOptimizationData,
-} from './v8-monitor.js';
+import { createTraceParser } from './v8-monitor.js';
 import { calculateStats, detectOutliers, assessReliability } from './metrics.js';
 import { delay } from '../utils/async.js';
 import { DEFAULT_CONFIG, mergeConfig } from '../utils/config.js';
@@ -108,19 +103,19 @@ const TRACE_PROBE_LINE =
   '[marking 0x22bac9112da1 <JSFunction __traceProbe__ (sfi = 0x157c3d9067b1)> for optimization to MAGLEV, ConcurrencyMode::kConcurrent, reason: hot and stable]';
 const TRACE_PROBE_NAME = '__traceProbe__';
 
-function probeTraceParser() {
-  parseTraceLine(TRACE_PROBE_LINE);
-  return optimizationInfo.has(TRACE_PROBE_NAME) ? 'ok' : 'unknown_format';
+function probeTraceParser(parser) {
+  parser.parseTraceLine(TRACE_PROBE_LINE);
+  return parser.optimizationInfo.has(TRACE_PROBE_NAME) ? 'ok' : 'unknown_format';
 }
 
 async function runInChild(benchmark, config) {
-  // Each benchmark gets fresh parser state so its counters aren't polluted by
-  // events from a previous benchmark in the same parent run. The probe runs
-  // against the same parser and is cleared here so its synthetic entry never
-  // leaks into the benchmark's real counters.
-  clearOptimizationData();
-  const traceParserHealth = probeTraceParser();
-  clearOptimizationData();
+  // Each benchmark gets a fresh parser instance so its counters cannot be
+  // polluted by events from a previous benchmark in the same parent run. The
+  // probe runs against a throwaway parser so its synthetic entry never leaks
+  // into the benchmark's real counters.
+  const probeParser = createTraceParser();
+  const traceParserHealth = probeTraceParser(probeParser);
+  const parser = createTraceParser();
 
   const execArgv = [];
   if (config.v8.enableIntrinsics) execArgv.push('--allow-natives-syntax');
@@ -142,7 +137,7 @@ async function runInChild(benchmark, config) {
   );
 
   const handleLine = line => {
-    if (isV8TraceLine(line)) parseTraceLine(line);
+    if (isV8TraceLine(line)) parser.parseTraceLine(line);
   };
   const stdoutRl = readline.createInterface({ input: child.stdout });
   const stderrRl = readline.createInterface({ input: child.stderr });
@@ -240,7 +235,7 @@ async function runInChild(benchmark, config) {
   // that explicitly so consumers can distinguish "didn't optimize" from
   // "can't tell".
   const lookupName = resolvedName || benchmark.exportName;
-  const traceInfo = optimizationInfo.get(lookupName);
+  const traceInfo = parser.optimizationInfo.get(lookupName);
   const traceAttribution = resolvedName === '' ? 'anonymous-skipped' : 'by-name';
   const optimization = {
     ...optimizationStatus,
@@ -249,7 +244,7 @@ async function runInChild(benchmark, config) {
     tiers: traceInfo?.tiers ?? [],
     deoptimized:
       (optimizationStatus && optimizationStatus.deoptimized) ||
-      deoptedFunctions.has(lookupName),
+      parser.deoptedFunctions.has(lookupName),
     deoptReasons: traceInfo?.deoptReasons ?? [],
     traceAttribution,
     forced: forced ?? config.v8.forceOptimization,
@@ -292,9 +287,10 @@ async function runInChild(benchmark, config) {
 
 // V8 --trace-opt / --trace-deopt records always open with one of these
 // prefixes. Filtering at the readline boundary stops user console.log output
+// Exported for testing — production consumers use it via runInChild.
 // (which shares stdout/stderr with V8's trace stream) from being misread as
 // optimization events when it happens to contain `<JSFunction …>`.
-function isV8TraceLine(line) {
+export function isV8TraceLine(line) {
   return (
     line.startsWith('[marking ') ||
     line.startsWith('[manually marking ') ||

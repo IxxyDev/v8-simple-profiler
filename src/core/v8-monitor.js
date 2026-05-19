@@ -1,6 +1,3 @@
-export const optimizationInfo = new Map();
-export const deoptedFunctions = new Set();
-
 // V8 emits two flavours of optimization markers:
 //   [marking 0x… <JSFunction foo (sfi = …)> for optimization to MAGLEV, …, reason: hot and stable]
 //   [manually marking 0x… <JSFunction foo (sfi = …)> for optimization to TURBOFAN_JS, ConcurrencyMode::kSynchronous]
@@ -12,6 +9,63 @@ export const deoptedFunctions = new Set();
 const OPT_PATTERN = /\[(?:manually\s+)?marking\s+0x[0-9a-f]+\s+<JSFunction\s+([^\s<>(]+)\s+\([^)]*\)>\s+for optimization to\s+([A-Z_]+)([^\]]*)\]/g;
 const DEOPT_PATTERN = /\[bailout\s+\(kind:\s*([^,]+),\s*reason:\s*([^)]+)\):[^<]*<JSFunction\s+([^\s<>(]+)\s+\([^)]*\)>/g;
 const REASON_TAIL = /reason:\s*(.+?)\s*$/;
+
+// Each profiling run owns its own parser instance so trace events from one
+// benchmark cannot bleed into another. The previous module-level singleton
+// made `clearOptimizationData()` mandatory between runs and quietly blocked
+// any future parallel-fork execution model.
+export function createTraceParser() {
+  const optimizationInfo = new Map();
+  const deoptedFunctions = new Set();
+
+  function parseTraceLine(line) {
+    if (line.indexOf('<JSFunction') === -1) return;
+
+    for (const match of line.matchAll(OPT_PATTERN)) {
+      const [, funcName, tier, tail] = match;
+      const reasonMatch = tail.match(REASON_TAIL);
+      const reason = reasonMatch ? reasonMatch[1] : 'manual';
+      const info = optimizationInfo.get(funcName) ?? { attempts: 0, reasons: [], tiers: [] };
+      info.attempts++;
+      info.reasons.push(reason);
+      info.tiers.push(tier);
+      optimizationInfo.set(funcName, info);
+    }
+
+    for (const match of line.matchAll(DEOPT_PATTERN)) {
+      const [, , reason, funcName] = match;
+      deoptedFunctions.add(funcName);
+      const info = optimizationInfo.get(funcName) ?? { attempts: 0, reasons: [], tiers: [] };
+      info.deoptReasons = info.deoptReasons ?? [];
+      info.deoptReasons.push(reason.trim());
+      optimizationInfo.set(funcName, info);
+    }
+  }
+
+  // Exposed for tests: feed a chunk through the parser. Splits on `\n` and
+  // dispatches each line. Not part of the production surface — production
+  // consumers feed lines directly from a readline stream.
+  function ingestTraceChunkForTesting(chunk) {
+    const text = typeof chunk === 'string' ? chunk : chunk?.toString?.('utf8');
+    if (!text) return;
+    for (const line of text.split('\n')) {
+      if (line) parseTraceLine(line);
+    }
+  }
+
+  function clear() {
+    optimizationInfo.clear();
+    deoptedFunctions.clear();
+  }
+
+  return {
+    optimizationInfo,
+    deoptedFunctions,
+    parseTraceLine,
+    ingestTraceChunkForTesting,
+    clear,
+  };
+}
 
 // V8 intrinsics must be invoked from a scope that can see the function
 // argument. The previous implementation interpolated the benchmark name into
@@ -39,45 +93,10 @@ const intrinsicStatus = makeIntrinsic('return %GetOptimizationStatus(fn)');
 
 let intrinsicsAvailableCache = null;
 
-export function parseTraceLine(line) {
-  if (line.indexOf('<JSFunction') === -1) return;
-
-  for (const match of line.matchAll(OPT_PATTERN)) {
-    const [, funcName, tier, tail] = match;
-    const reasonMatch = tail.match(REASON_TAIL);
-    const reason = reasonMatch ? reasonMatch[1] : 'manual';
-    const info = optimizationInfo.get(funcName) ?? { attempts: 0, reasons: [], tiers: [] };
-    info.attempts++;
-    info.reasons.push(reason);
-    info.tiers.push(tier);
-    optimizationInfo.set(funcName, info);
-  }
-
-  for (const match of line.matchAll(DEOPT_PATTERN)) {
-    const [, , reason, funcName] = match;
-    deoptedFunctions.add(funcName);
-    const info = optimizationInfo.get(funcName) ?? { attempts: 0, reasons: [], tiers: [] };
-    info.deoptReasons = info.deoptReasons ?? [];
-    info.deoptReasons.push(reason.trim());
-    optimizationInfo.set(funcName, info);
-  }
-}
-
-// Exposed only for tests: feed a chunk through the parser. Splits on `\n` and
-// dispatches each line to parseTraceLine directly. Not part of the public API.
-export function ingestTraceChunkForTesting(chunk) {
-  const text = typeof chunk === 'string' ? chunk : chunk?.toString?.('utf8');
-  if (!text) return;
-  for (const line of text.split('\n')) {
-    if (line) parseTraceLine(line);
-  }
-}
-
-// Returns only what the intrinsics actually know in the current isolate:
-// the decoded status word and whether *this* isolate has seen a bailout for
-// `name`. Trace-derived counters (attempts/reasons/tiers) live in the parent
-// because the --trace-opt stream is parsed there; the parent merges them in.
-export function getOptimizationStatus(fn, name) {
+// Returns only what the intrinsics know in the current isolate: the decoded
+// status word. Trace-derived counters (attempts/reasons/tiers/deopted) live
+// in the parser and are merged in by the parent.
+export function getOptimizationStatus(fn) {
   if (!isV8IntrinsicsAvailable() || !intrinsicStatus) {
     return { available: false };
   }
@@ -90,7 +109,7 @@ export function getOptimizationStatus(fn, name) {
       available: true,
       status,
       flags,
-      deoptimized: deoptedFunctions.has(name),
+      deoptimized: false,
     };
   } catch (error) {
     return {
@@ -162,11 +181,6 @@ export function forceOptimization(fn) {
   if (!isV8IntrinsicsAvailable()) return false;
   if (!prepareForOptimization(fn)) return false;
   return optimizeOnNextCall(fn);
-}
-
-export function clearOptimizationData() {
-  optimizationInfo.clear();
-  deoptedFunctions.clear();
 }
 
 export function getOptimizationInsights(result) {

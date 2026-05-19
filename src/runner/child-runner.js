@@ -171,7 +171,7 @@ async function main() {
   }
 
   const optimizationStatus = intrinsicsAvailable
-    ? getOptimizationStatus(fn, exportName)
+    ? getOptimizationStatus(fn)
     : { available: false };
 
   send({
