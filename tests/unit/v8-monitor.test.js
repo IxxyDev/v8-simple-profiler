@@ -123,6 +123,16 @@ describe('V8 trace parsing', () => {
     );
     expect(optimizationInfo.size).toBe(0);
   });
+
+  it('should attribute trace events to functions with non-ASCII names', () => {
+    ingestTraceChunkForTesting(
+      '[marking 0x1 <JSFunction λBench (sfi = 0x2)> for optimization to MAGLEV, ConcurrencyMode::kConcurrent, reason: hot and stable]\n' +
+      '[marking 0x3 <JSFunction горячий (sfi = 0x4)> for optimization to TURBOFAN_JS, ConcurrencyMode::kSynchronous, reason: hot and stable]\n'
+    );
+    expect(optimizationInfo.has('λBench')).toBe(true);
+    expect(optimizationInfo.has('горячий')).toBe(true);
+    expect(optimizationInfo.get('горячий').tiers).toContain('TURBOFAN_JS');
+  });
 });
 
 describe('getOptimizationInsights OSR / top-tier presentation', () => {
