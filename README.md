@@ -79,20 +79,21 @@ npm run benchmark:csv    # writes CSV to ./reports/
 
 Available flags:
 
-| Flag                  | Description                                                                                                |
-| --------------------- | ---------------------------------------------------------------------------------------------------------- |
-| `-c, --config <path>` | Path to config file (`.json`, `.js`, `.mjs`)                                                               |
-| `-f, --format <type>` | `console` (default), `json`, `csv`, or `all`                                                               |
-| `-o, --output <dir>`  | Output directory for file reports (default `./reports`)                                                    |
-| `-w, --warmup <runs>` | Warm-up iterations                                                                                         |
-| `-r, --runs <count>`  | Measurement iterations                                                                                     |
-| `-d, --delay <ms>`    | Delay between functions                                                                                    |
-| `-v, --verbose`       | Include percentiles, outliers, stack traces on errors                                                      |
-| `--no-v8`             | Disable V8 intrinsics                                                                                      |
-| `--no-optimization`   | Skip `%OptimizeFunctionOnNextCall`                                                                         |
-| `--threshold <n>`     | Outlier detection threshold (z-score, default `2`)                                                         |
-| `--filename <tpl>`    | Filename template, supports `{timestamp}`                                                                  |
-| `--run-order-check`   | Rerun in reverse and flag the result set as order-dependent if the ranking flips (doubles wall-clock time) |
+| Flag                  | Description                                                                                                    |
+| --------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `-c, --config <path>` | Path to config file (`.json`, `.js`, `.mjs`)                                                                   |
+| `-f, --format <type>` | `console` (default), `json`, `csv`, or `all`                                                                   |
+| `-o, --output <dir>`  | Output directory for file reports (default `./reports`)                                                        |
+| `-w, --warmup <runs>` | Warm-up iterations                                                                                             |
+| `-r, --runs <count>`  | Measurement iterations                                                                                         |
+| `-d, --delay <ms>`    | Delay between functions                                                                                        |
+| `-v, --verbose`       | Include percentiles, outliers, stack traces on errors                                                          |
+| `--no-v8`             | Disable V8 intrinsics                                                                                          |
+| `--no-optimization`   | Skip `%OptimizeFunctionOnNextCall`                                                                             |
+| `--threshold <n>`     | Outlier detection threshold (z-score, default `2`)                                                             |
+| `--filename <tpl>`    | Filename template, supports `{timestamp}`                                                                      |
+| `--run-order-check`   | Rerun in reverse and flag the result set as order-dependent if the ranking flips (doubles wall-clock time)     |
+| `--init`              | Drop a sample `profiler.config.js` into the current directory and exit (refuses to overwrite an existing file) |
 
 > V8 intrinsics (`%GetOptimizationStatus`, `%OptimizeFunctionOnNextCall`) require Node to be started with `--allow-natives-syntax`. Without it the timing pipeline still works — you just lose the per-function optimization status block.
 

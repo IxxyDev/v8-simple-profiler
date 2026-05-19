@@ -2,7 +2,10 @@
 
 import { Command } from 'commander';
 import chalk from 'chalk';
-import { resolve } from 'node:path';
+import { resolve, dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { existsSync } from 'node:fs';
+import { copyFile } from 'node:fs/promises';
 
 import { createProfiler } from '../core/profiler.js';
 import { findAndLoadConfig, mergeConfig, validateConfig, DEFAULT_CONFIG } from '../utils/config.js';
@@ -38,6 +41,7 @@ program
     '--run-order-check',
     'rerun benchmarks in reverse order and warn if the ranking flips (doubles wall-clock time)'
   )
+  .option('--init', 'write a sample profiler.config.js to the current directory and exit')
   .addHelpText(
     'after',
     `
@@ -61,6 +65,11 @@ For more information, visit: https://github.com/IxxyDev/v8-simple-profiler
 
 program.action(async options => {
   try {
+    if (options.init) {
+      await runInit();
+      return;
+    }
+
     console.log(chalk.cyan('=== V8 DEOPTIMIZATION PROFILER ===\n'));
 
     const config = await loadConfiguration(options);
@@ -221,6 +230,22 @@ async function generateReports(results, config) {
 
     console.log(chalk.green(`✓ CSV report saved to ${filepath}`));
   }
+}
+
+async function runInit() {
+  const here = dirname(fileURLToPath(import.meta.url));
+  const source = resolve(here, '..', '..', 'config', 'profiler.config.js');
+  const destination = join(process.cwd(), 'profiler.config.js');
+
+  if (existsSync(destination)) {
+    console.error(chalk.red(`profiler.config.js already exists at ${destination}`));
+    console.error(chalk.yellow('Remove or rename it first; --init refuses to overwrite.'));
+    process.exit(1);
+  }
+
+  await copyFile(source, destination);
+  console.log(chalk.green(`✓ Wrote sample config to ${destination}`));
+  console.log(chalk.gray('Edit it, then run `v8-profiler` (or `npm run benchmark`).'));
 }
 
 program.parse();
