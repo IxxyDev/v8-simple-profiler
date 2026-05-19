@@ -1,12 +1,12 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { 
-  DEFAULT_CONFIG, 
-  loadConfig, 
-  mergeConfig, 
+import {
+  DEFAULT_CONFIG,
+  loadConfig,
+  mergeConfig,
   validateConfig,
-  findAndLoadConfig 
+  findAndLoadConfig,
 } from '../../src/utils/config.js';
-import { writeFile, unlink, mkdir, mkdtemp, rm } from 'fs/promises';
+import { writeFile, unlink, mkdtemp, rm } from 'fs/promises';
 import { existsSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
@@ -14,7 +14,7 @@ import { join } from 'path';
 describe('Configuration System', () => {
   const testConfigPath = './test-config.json';
   const testConfigJsPath = './test-config.js';
-  
+
   beforeEach(async () => {
     try {
       if (existsSync(testConfigPath)) await unlink(testConfigPath);
@@ -50,12 +50,12 @@ describe('Configuration System', () => {
     it('should load JSON configuration', async () => {
       const testConfig = {
         profiling: { warmupRuns: 20 },
-        output: { format: 'json' }
+        output: { format: 'json' },
       };
-      
+
       await writeFile(testConfigPath, JSON.stringify(testConfig));
       const config = await loadConfig(testConfigPath);
-      
+
       expect(config.profiling.warmupRuns).toBe(20);
       expect(config.output.format).toBe('json');
     });
@@ -65,17 +65,17 @@ describe('Configuration System', () => {
         profiling: { warmupRuns: 30 },
         output: { format: 'csv' }
       };`;
-      
+
       await writeFile(testConfigJsPath, jsConfig);
       const config = await loadConfig(testConfigJsPath);
-      
+
       expect(config.profiling.warmupRuns).toBe(30);
       expect(config.output.format).toBe('csv');
     });
 
     it('should throw error for invalid JSON', async () => {
       await writeFile(testConfigPath, '{ invalid json }');
-      
+
       await expect(loadConfig(testConfigPath)).rejects.toThrow('Invalid JSON');
     });
 
@@ -94,16 +94,16 @@ describe('Configuration System', () => {
     it('should merge configurations with proper precedence', () => {
       const userConfig = {
         profiling: { warmupRuns: 20 },
-        output: { format: 'json' }
+        output: { format: 'json' },
       };
-      
+
       const cliOptions = {
         profiling: { testRuns: 500 },
-        output: { verbose: true }
+        output: { verbose: true },
       };
-      
+
       const merged = mergeConfig(DEFAULT_CONFIG, userConfig, cliOptions);
-      
+
       expect(merged.profiling.warmupRuns).toBe(20); // from userConfig
       expect(merged.profiling.testRuns).toBe(500); // from cliOptions
       expect(merged.profiling.delayBetweenTests).toBe(100); // from defaults
@@ -113,11 +113,11 @@ describe('Configuration System', () => {
 
     it('should handle nested object merging', () => {
       const userConfig = {
-        profiling: { warmupRuns: 15 }
+        profiling: { warmupRuns: 15 },
       };
-      
+
       const merged = mergeConfig(DEFAULT_CONFIG, userConfig);
-      
+
       expect(merged.profiling.warmupRuns).toBe(15);
       expect(merged.profiling.testRuns).toBe(1000); // preserved from defaults
       expect(merged.output).toEqual(DEFAULT_CONFIG.output); // unchanged
@@ -134,9 +134,9 @@ describe('Configuration System', () => {
     it('should detect type errors', () => {
       const invalidConfig = {
         profiling: { warmupRuns: 'not-a-number' },
-        output: { verbose: 'not-a-boolean' }
+        output: { verbose: 'not-a-boolean' },
       };
-      
+
       const result = validateConfig(invalidConfig);
       expect(result.isValid).toBe(false);
       expect(result.errors.length).toBeGreaterThan(0);
@@ -147,9 +147,9 @@ describe('Configuration System', () => {
     it('should detect range errors', () => {
       const invalidConfig = {
         profiling: { warmupRuns: -1, testRuns: 2000000 },
-        analysis: { outlierThreshold: 50 }
+        analysis: { outlierThreshold: 50 },
       };
-      
+
       const result = validateConfig(invalidConfig);
       expect(result.isValid).toBe(false);
       expect(result.errors.some(e => e.includes('at least'))).toBe(true);
@@ -158,9 +158,9 @@ describe('Configuration System', () => {
 
     it('should detect enum errors', () => {
       const invalidConfig = {
-        output: { format: 'invalid-format' }
+        output: { format: 'invalid-format' },
       };
-      
+
       const result = validateConfig(invalidConfig);
       expect(result.isValid).toBe(false);
       expect(result.errors.some(e => e.includes('Must be one of'))).toBe(true);
@@ -169,9 +169,9 @@ describe('Configuration System', () => {
     it('should provide helpful suggestions', () => {
       const invalidConfig = {
         output: { format: 'invalid-format' },
-        profiling: { warmupRuns: -1 }
+        profiling: { warmupRuns: -1 },
       };
-      
+
       const result = validateConfig(invalidConfig);
       expect(result.suggestions.length).toBeGreaterThan(0);
       expect(result.suggestions.some(s => s.includes('console'))).toBe(true);
@@ -195,7 +195,7 @@ describe('Configuration System', () => {
     it('should load custom config path when provided', async () => {
       const testConfig = { profiling: { warmupRuns: 25 } };
       await writeFile(testConfigPath, JSON.stringify(testConfig));
-      
+
       const config = await findAndLoadConfig(testConfigPath);
       expect(config.profiling.warmupRuns).toBe(25);
     });

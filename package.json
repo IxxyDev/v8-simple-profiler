@@ -15,9 +15,20 @@
     "benchmark:csv": "node src/cli/index.js --format csv --output ./reports/",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:config": "vitest run tests/unit/config.test.js"
+    "test:config": "vitest run tests/unit/config.test.js",
+    "lint": "eslint src tests run.js eslint.config.js",
+    "lint:fix": "eslint src tests run.js eslint.config.js --fix",
+    "format": "prettier --write \"src/**/*.js\" \"tests/**/*.js\" \"config/**/*.{js,json}\" \"example/**/*.js\" \"*.{js,json,md,yml}\" \".github/workflows/*.yml\"",
+    "format:check": "prettier --check \"src/**/*.js\" \"tests/**/*.js\" \"config/**/*.{js,json}\" \"example/**/*.js\" \"*.{js,json,md,yml}\" \".github/workflows/*.yml\""
   },
-  "keywords": ["v8", "profiler", "deoptimization", "performance", "benchmark", "optimization"],
+  "keywords": [
+    "v8",
+    "profiler",
+    "deoptimization",
+    "performance",
+    "benchmark",
+    "optimization"
+  ],
   "author": "IxxyDev",
   "license": "MIT",
   "type": "module",
@@ -25,10 +36,14 @@
     "node": ">=16.0.0"
   },
   "dependencies": {
-    "commander": "^11.0.0",
-    "chalk": "^5.0.0"
+    "chalk": "^5.0.0",
+    "commander": "^11.0.0"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.4.0",
+    "eslint-config-prettier": "^10.1.8",
+    "prettier": "^3.8.3",
     "vitest": "^1.0.0"
   }
 }

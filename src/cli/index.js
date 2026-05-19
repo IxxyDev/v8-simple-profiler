@@ -34,8 +34,13 @@ program
   .option('--no-optimization', 'disable forced optimization')
   .option('--threshold <value>', 'outlier detection threshold', parseFloat)
   .option('--filename <template>', 'filename template for reports')
-  .option('--run-order-check', 'rerun benchmarks in reverse order and warn if the ranking flips (doubles wall-clock time)')
-  .addHelpText('after', `
+  .option(
+    '--run-order-check',
+    'rerun benchmarks in reverse order and warn if the ranking flips (doubles wall-clock time)'
+  )
+  .addHelpText(
+    'after',
+    `
 Examples:
   $ v8-profiler                          # Run with default settings
   $ v8-profiler --config ./my-config.js  # Use custom config
@@ -51,9 +56,10 @@ Config file examples:
   ./config/profiler.config.json
 
 For more information, visit: https://github.com/IxxyDev/v8-simple-profiler
-`);
+`
+  );
 
-program.action(async (options) => {
+program.action(async options => {
   try {
     console.log(chalk.cyan('=== V8 DEOPTIMIZATION PROFILER ===\n'));
 
@@ -83,13 +89,16 @@ program.action(async (options) => {
     console.log(chalk.green(`Found ${benchmarks.length} benchmark(s) to profile`));
 
     if (!config.data.v8.enableIntrinsics) {
-      console.log(chalk.yellow('V8 intrinsics disabled in config — tier flags and trace counters will not appear.'));
+      console.log(
+        chalk.yellow(
+          'V8 intrinsics disabled in config — tier flags and trace counters will not appear.'
+        )
+      );
     }
 
     const results = await profiler.runBenchmarks(benchmarks);
 
-    await generateReports(results, config.data, options);
-
+    await generateReports(results, config.data);
   } catch (error) {
     console.error(chalk.red('Error:'), error.message);
 
@@ -115,14 +124,14 @@ async function loadConfiguration(options) {
       isValid: validation.isValid,
       errors: validation.errors,
       suggestions: validation.suggestions,
-      data: mergedConfig
+      data: mergedConfig,
     };
   } catch (error) {
     return {
       isValid: false,
       errors: [error.message],
       suggestions: ['Check your configuration file path and syntax'],
-      data: null
+      data: null,
     };
   }
 }
@@ -177,7 +186,7 @@ function buildCliConfig(options) {
   return cliConfig;
 }
 
-async function generateReports(results, config, options) {
+async function generateReports(results, config) {
   const format = config.output.format;
   const outputDir = config.output.directory;
   const filenameTemplate = config.output.filename;
@@ -185,7 +194,7 @@ async function generateReports(results, config, options) {
   if (format === 'console' || format === 'all') {
     formatConsoleReport(results, {
       verbose: config.output.verbose,
-      showInsights: config.analysis.showInsights
+      showInsights: config.analysis.showInsights,
     });
   }
 
@@ -195,7 +204,7 @@ async function generateReports(results, config, options) {
 
     await saveJsonReport(results, filepath, {
       pretty: true,
-      includeMetadata: true
+      includeMetadata: true,
     });
 
     console.log(chalk.green(`✓ JSON report saved to ${filepath}`));
@@ -207,7 +216,7 @@ async function generateReports(results, config, options) {
 
     await saveCsvReport(results, filepath, {
       includeOptimization: true,
-      includePercentiles: config.output.verbose
+      includePercentiles: config.output.verbose,
     });
 
     console.log(chalk.green(`✓ CSV report saved to ${filepath}`));

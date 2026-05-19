@@ -35,23 +35,23 @@ const CONFIG_SCHEMA = {
     warmupRuns: { type: 'number', min: 1, max: 10000 },
     testRuns: { type: 'number', min: 1, max: 1000000 },
     delayBetweenTests: { type: 'number', min: 0, max: 10000 },
-    runOrderCheck: { type: 'boolean' }
+    runOrderCheck: { type: 'boolean' },
   },
   output: {
     format: { type: 'string', enum: ['console', 'json', 'csv', 'all'] },
     directory: { type: 'string' },
     filename: { type: 'string' },
-    verbose: { type: 'boolean' }
+    verbose: { type: 'boolean' },
   },
   analysis: {
     outlierThreshold: { type: 'number', min: 0.1, max: 10 },
-    showInsights: { type: 'boolean' }
+    showInsights: { type: 'boolean' },
   },
   v8: {
     enableIntrinsics: { type: 'boolean' },
     forceOptimization: { type: 'boolean' },
-    traceOptimization: { type: 'boolean' }
-  }
+    traceOptimization: { type: 'boolean' },
+  },
 };
 
 export async function loadConfig(configPath) {
@@ -61,7 +61,7 @@ export async function loadConfig(configPath) {
 
   try {
     const resolvedPath = resolve(configPath);
-    
+
     if (configPath.endsWith('.json')) {
       const content = await readFile(resolvedPath, 'utf8');
       return JSON.parse(content);
@@ -73,11 +73,15 @@ export async function loadConfig(configPath) {
     }
   } catch (error) {
     if (error.code === 'ENOENT') {
-      throw new Error(`Configuration file not found: ${configPath}`);
+      throw new Error(`Configuration file not found: ${configPath}`, { cause: error });
     } else if (error instanceof SyntaxError) {
-      throw new Error(`Invalid JSON in configuration file: ${configPath}\n${error.message}`);
+      throw new Error(`Invalid JSON in configuration file: ${configPath}\n${error.message}`, {
+        cause: error,
+      });
     } else {
-      throw new Error(`Failed to load configuration from ${configPath}: ${error.message}`);
+      throw new Error(`Failed to load configuration from ${configPath}: ${error.message}`, {
+        cause: error,
+      });
     }
   }
 }
@@ -103,17 +107,17 @@ function mergeDeep(target, source) {
 
 export function validateConfig(config) {
   const errors = [];
-  
+
   try {
     validateSection(config, CONFIG_SCHEMA, '', errors);
   } catch (error) {
     errors.push(`Configuration validation failed: ${error.message}`);
   }
-  
+
   return {
     isValid: errors.length === 0,
     errors,
-    suggestions: generateSuggestions(errors)
+    suggestions: generateSuggestions(errors),
   };
 }
 
@@ -162,43 +166,49 @@ function validateProperty(value, rule, path, errors) {
 
 function generateSuggestions(errors) {
   const suggestions = [];
-  
+
   for (const error of errors) {
     if (error.includes('output.format')) {
       suggestions.push('Try using one of: "console", "json", "csv", or "all"');
     } else if (error.includes('profiling.')) {
-      suggestions.push('Check that profiling numbers are positive and reasonable (e.g., testRuns: 1000)');
+      suggestions.push(
+        'Check that profiling numbers are positive and reasonable (e.g., testRuns: 1000)'
+      );
     } else if (error.includes('Expected')) {
       suggestions.push('Check the data type of your configuration values');
     }
   }
-  
+
   if (suggestions.length === 0 && errors.length > 0) {
     suggestions.push('Please check the configuration documentation for valid options');
   }
-  
+
   return [...new Set(suggestions)];
 }
 
 export async function findAndLoadConfig(customPath) {
-  const configPaths = customPath ? [customPath] : [
-    './profiler.config.js',
-    './profiler.config.mjs',
-    './profiler.config.json',
-    './config/profiler.config.js',
-    './config/profiler.config.mjs',
-    './config/profiler.config.json'
-  ];
-  
+  const configPaths = customPath
+    ? [customPath]
+    : [
+        './profiler.config.js',
+        './profiler.config.mjs',
+        './profiler.config.json',
+        './config/profiler.config.js',
+        './config/profiler.config.mjs',
+        './config/profiler.config.json',
+      ];
+
   for (const configPath of configPaths) {
     if (existsSync(configPath)) {
       try {
         return await loadConfig(configPath);
       } catch (error) {
-        throw new Error(`Failed to load config from ${configPath}: ${error.message}`);
+        throw new Error(`Failed to load config from ${configPath}: ${error.message}`, {
+          cause: error,
+        });
       }
     }
   }
-  
+
   return {};
 }
