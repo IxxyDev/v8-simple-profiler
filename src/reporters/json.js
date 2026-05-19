@@ -2,7 +2,7 @@ import { writeFile, mkdir } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { existsSync } from 'node:fs';
 
-function formatJsonReport(results, options = {}) {
+export function formatJsonReport(results, options = {}) {
   const {
     includeRawData = false,
     pretty = true,
