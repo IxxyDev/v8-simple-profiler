@@ -87,10 +87,12 @@ export function formatPerformanceComparison(results) {
 
     for (let i = 1; i < sorted.length; i++) {
       const comparison = compareResults(fastest, sorted[i]);
-      if (comparison) {
-        console.log(`  ${comparison.comparison.name} is ${comparison.difference.speedup}x slower than ${comparison.baseline.name}`);
-        console.log(`    ${comparison.summary}`);
-      }
+      if (!comparison) continue;
+      const { ratio, direction } = comparison.difference;
+      const ratioText = ratio === null ? 'n/a' : `${ratio.toFixed(2)}×`;
+      const relation = direction === 'same' ? 'matches' : `is ${ratioText} ${direction} than`;
+      console.log(`  ${comparison.comparison.name} ${relation} ${comparison.baseline.name}`);
+      console.log(`    ${comparison.summary}`);
     }
   }
 }
