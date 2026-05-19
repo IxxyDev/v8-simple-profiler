@@ -7,7 +7,7 @@ export function formatJsonReport(results, options = {}) {
 
   const report = {
     timestamp: new Date().toISOString(),
-    version: '1.0.0',
+    version: '1.1.0',
     results: results.map(formatResult),
     summary: generateSummary(results),
   };

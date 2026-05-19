@@ -19,7 +19,7 @@ const program = new Command();
 program
   .name('v8-profiler')
   .description('V8 deoptimization profiler with comprehensive analysis and reporting')
-  .version('1.0.0')
+  .version('1.1.0')
   .option('-c, --config <path>', 'path to configuration file')
   .option(
     '-b, --benchmarks <spec>',
