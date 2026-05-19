@@ -297,13 +297,22 @@ function calculateSignificance(baselineStats, comparisonStats) {
     tStatistic > crit95 ? 95 :
     tStatistic > crit90 ? 90 : 0;
 
+  // criticalValue mirrors the confidenceLevel actually reported, so consumers
+  // see a self-consistent (tStat, critical, level) triple instead of a t-stat
+  // crossing 99% sitting next to a hardcoded 95% threshold.
+  const reportedCrit =
+    confidenceLevel === 99 ? crit99 :
+    confidenceLevel === 90 ? crit90 :
+    crit95;
+  const reportedLevel = confidenceLevel === 0 ? 95 : confidenceLevel;
+
   return {
     tStatistic: Number(tStatistic.toFixed(4)),
     degreesOfFreedom: Number(degreesOfFreedom.toFixed(2)),
     significant,
     confidenceLevel,
-    criticalValue: Number(crit95.toFixed(4)),
-    criticalLevel: 'two-sided-95',
+    criticalValue: Number(reportedCrit.toFixed(4)),
+    criticalLevel: `two-sided-${reportedLevel}`,
   };
 }
 
