@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/IxxyDev/v8-simple-profiler/actions/workflows/ci.yml/badge.svg)](https://github.com/IxxyDev/v8-simple-profiler/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-![Node.js](https://img.shields.io/badge/Node.js-%E2%89%A516-43853d)
+![Node.js](https://img.shields.io/badge/Node.js-%E2%89%A520-43853d)
 
 A small Node.js profiler that demonstrates and measures V8's optimization behavior — specifically the cost of polymorphic vs monomorphic code paths.
 
@@ -180,7 +180,7 @@ benchmarks, not the raw means.
 
 ## Requirements
 
-- Node.js ≥ 16
+- Node.js ≥ 20
 - macOS, Linux, or Windows
 
 ## License
