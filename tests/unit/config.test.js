@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import {
   DEFAULT_CONFIG,
   loadConfig,
@@ -12,8 +12,19 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 
 describe('Configuration System', () => {
-  const testConfigPath = './test-config.json';
-  const testConfigJsPath = './test-config.js';
+  let tempDir;
+  let testConfigPath;
+  let testConfigJsPath;
+
+  beforeAll(async () => {
+    tempDir = await mkdtemp(join(tmpdir(), 'profiler-config-test-'));
+    testConfigPath = join(tempDir, 'test-config.json');
+    testConfigJsPath = join(tempDir, 'test-config.js');
+  });
+
+  afterAll(async () => {
+    await rm(tempDir, { recursive: true, force: true });
+  });
 
   beforeEach(async () => {
     try {
@@ -80,7 +91,7 @@ describe('Configuration System', () => {
     });
 
     it('should throw error for unsupported file format', async () => {
-      const txtPath = './test.txt';
+      const txtPath = join(tempDir, 'test.txt');
       await writeFile(txtPath, 'dummy');
       try {
         await expect(loadConfig(txtPath)).rejects.toThrow('Unsupported config file format');
