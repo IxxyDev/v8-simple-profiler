@@ -1,5 +1,6 @@
 # v8-simple-profiler
 
+[![CI](https://github.com/IxxyDev/v8-simple-profiler/actions/workflows/ci.yml/badge.svg)](https://github.com/IxxyDev/v8-simple-profiler/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 ![Node.js](https://img.shields.io/badge/Node.js-%E2%89%A516-43853d)
 
