@@ -13,7 +13,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        # Windows excluded pending a vitest bump: vitest 1.x's vite-node loader
+        # mishandles file:// URLs on Windows when production code does dynamic
+        # import (load-benchmarks.js / child-runner.js). The CLI itself runs
+        # fine on Windows under plain node; only the test runner is affected.
+        os: [ubuntu-latest, macos-latest]
         node: ['18.x', '20.x', '22.x']
     steps:
       - uses: actions/checkout@v4

@@ -10,6 +10,9 @@ describe('loadBenchmarks', () => {
 
   beforeEach(async () => {
     dir = await mkdtemp(join(tmpdir(), 'v8-bench-'));
+    // Without a package.json declaring type=module, Node <22 treats stray .js
+    // files inside the tmp dir as CommonJS and chokes on `export ...` syntax.
+    await writeFile(join(dir, 'package.json'), '{"type":"module"}');
   });
 
   afterEach(async () => {
