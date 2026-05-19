@@ -12,7 +12,6 @@
   },
   "analysis": {
     "outlierThreshold": 2,
-    "confidenceLevel": 0.95,
     "showInsights": true
   },
   "v8": {

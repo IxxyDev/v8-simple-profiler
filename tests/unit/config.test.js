@@ -36,7 +36,7 @@ describe('Configuration System', () => {
       expect(DEFAULT_CONFIG.profiling.warmupRuns).toBe(10);
       expect(DEFAULT_CONFIG.profiling.testRuns).toBe(1000);
       expect(DEFAULT_CONFIG.output.format).toBe('console');
-      expect(DEFAULT_CONFIG.analysis.confidenceLevel).toBe(0.95);
+      expect(DEFAULT_CONFIG.analysis.outlierThreshold).toBe(2);
       expect(DEFAULT_CONFIG.v8.enableIntrinsics).toBe(true);
     });
   });
@@ -147,7 +147,7 @@ describe('Configuration System', () => {
     it('should detect range errors', () => {
       const invalidConfig = {
         profiling: { warmupRuns: -1, testRuns: 2000000 },
-        analysis: { confidenceLevel: 1.5 }
+        analysis: { outlierThreshold: 50 }
       };
       
       const result = validateConfig(invalidConfig);

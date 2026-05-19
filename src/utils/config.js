@@ -19,7 +19,6 @@ export const DEFAULT_CONFIG = {
 
   analysis: {
     outlierThreshold: 2, // z-score (standard deviations from the mean)
-    confidenceLevel: 0.95,
     showInsights: true,
   },
 
@@ -45,7 +44,6 @@ const CONFIG_SCHEMA = {
   },
   analysis: {
     outlierThreshold: { type: 'number', min: 0.1, max: 10 },
-    confidenceLevel: { type: 'number', min: 0.5, max: 0.99 },
     showInsights: { type: 'boolean' }
   },
   v8: {
@@ -169,8 +167,6 @@ function generateSuggestions(errors) {
       suggestions.push('Try using one of: "console", "json", "csv", or "all"');
     } else if (error.includes('profiling.')) {
       suggestions.push('Check that profiling numbers are positive and reasonable (e.g., testRuns: 1000)');
-    } else if (error.includes('analysis.confidenceLevel')) {
-      suggestions.push('Confidence level should be between 0.5 and 0.99 (e.g., 0.95 for 95% confidence)');
     } else if (error.includes('Expected')) {
       suggestions.push('Check the data type of your configuration values');
     }

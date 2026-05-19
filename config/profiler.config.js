@@ -15,7 +15,6 @@ export default {
 
   analysis: {
     outlierThreshold: 2.5,
-    confidenceLevel: 0.95,
     showInsights: true
   },
 
