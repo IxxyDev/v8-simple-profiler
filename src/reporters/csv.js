@@ -48,23 +48,23 @@ function formatResultRow(result, options) {
   const baseRow = [
     result.name,
     result.error ? 'error' : 'success',
-    result.timing?.mean || '',
-    result.timing?.median || '',
-    result.timing?.min || '',
-    result.timing?.max || '',
-    result.timing?.stdDev || '',
-    result.timing?.reliability || '',
-    result.timing?.outliers || '',
-    result.timing?.count || ''
+    result.timing?.mean ?? '',
+    result.timing?.median ?? '',
+    result.timing?.min ?? '',
+    result.timing?.max ?? '',
+    result.timing?.stdDev ?? '',
+    result.timing?.reliability ?? '',
+    result.timing?.outliers ?? '',
+    result.timing?.count ?? ''
   ];
 
   if (includePercentiles) {
     baseRow.push(
-      result.timing?.p25 || '',
-      result.timing?.p75 || '',
-      result.timing?.p90 || '',
-      result.timing?.p95 || '',
-      result.timing?.p99 || ''
+      result.timing?.p25 ?? '',
+      result.timing?.p75 ?? '',
+      result.timing?.p90 ?? '',
+      result.timing?.p95 ?? '',
+      result.timing?.p99 ?? ''
     );
   }
 
@@ -73,11 +73,11 @@ function formatResultRow(result, options) {
       result.optimization?.available ? 'yes' : 'no',
       result.optimization?.flags?.optimized ? 'yes' : 'no',
       result.optimization?.deoptimized ? 'yes' : 'no',
-      result.optimization?.attempts || ''
+      result.optimization?.attempts ?? ''
     );
   }
 
-  baseRow.push(result.metadata?.timestamp || '');
+  baseRow.push(result.metadata?.timestamp ?? '');
 
   return baseRow;
 }
