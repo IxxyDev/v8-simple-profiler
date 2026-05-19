@@ -1,7 +1,6 @@
-import { readFile } from 'fs/promises';
-import { existsSync } from 'fs';
-import { resolve, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import { readFile } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 export const DEFAULT_CONFIG = {
   profiling: {

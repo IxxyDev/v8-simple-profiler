@@ -2,7 +2,7 @@
 
 import { Command } from 'commander';
 import chalk from 'chalk';
-import { resolve } from 'path';
+import { resolve } from 'node:path';
 
 import { createProfiler } from '../core/profiler.js';
 import { findAndLoadConfig, mergeConfig, validateConfig, DEFAULT_CONFIG } from '../utils/config.js';

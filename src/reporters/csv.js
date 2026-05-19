@@ -1,6 +1,6 @@
-import { writeFile, mkdir } from 'fs/promises';
-import { dirname, resolve } from 'path';
-import { existsSync } from 'fs';
+import { writeFile, mkdir } from 'node:fs/promises';
+import { dirname, resolve } from 'node:path';
+import { existsSync } from 'node:fs';
 
 function formatCsvReport(results, options = {}) {
   const {

@@ -1,6 +1,6 @@
-import { existsSync } from 'fs';
-import { resolve } from 'path';
-import { pathToFileURL } from 'url';
+import { existsSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 const DEFAULT_FALLBACK = './example/hot.js';
 const DEFAULT_EXPORT_SENTINEL = '__default__';
