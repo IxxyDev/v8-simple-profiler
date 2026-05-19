@@ -190,3 +190,36 @@ describe('getOptimizationInsights OSR / top-tier presentation', () => {
     expect(insights).not.toContain('✓ Optimized with TurboFan (top tier)');
   });
 });
+
+describe('getOptimizationInsights reasons filtering under forced optimization', () => {
+  function makeResult({ forced, reasons }) {
+    return {
+      optimization: {
+        available: true,
+        flags: { is_topTierTurbofan: true },
+        deoptimized: false,
+        attempts: reasons.length,
+        reasons,
+        forced,
+      },
+    };
+  }
+
+  it('should suppress lone "manual" reasons when forced=true (no Reasons line at all)', () => {
+    const insights = getOptimizationInsights(makeResult({ forced: true, reasons: ['manual'] }));
+    expect(insights.some(line => line.startsWith('→ Reasons:'))).toBe(false);
+    expect(insights).toContain('→ Optimization attempts: 1');
+  });
+
+  it('should keep non-manual reasons when forced=true', () => {
+    const insights = getOptimizationInsights(
+      makeResult({ forced: true, reasons: ['manual', 'hot and stable'] })
+    );
+    expect(insights).toContain('→ Reasons: hot and stable');
+  });
+
+  it('should keep "manual" reasons when forced=false', () => {
+    const insights = getOptimizationInsights(makeResult({ forced: false, reasons: ['manual'] }));
+    expect(insights).toContain('→ Reasons: manual');
+  });
+});

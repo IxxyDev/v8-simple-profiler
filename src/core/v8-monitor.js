@@ -222,8 +222,15 @@ export function getOptimizationInsights(result) {
 
   if (attempts > 0) {
     insights.push(`→ Optimization attempts: ${attempts}`);
-    if (reasons.length > 0) {
-      insights.push(`→ Reasons: ${reasons.join(', ')}`);
+    // When forceOptimization is on, every attempt carries the synthetic
+    // 'manual' reason from the parent's %OptimizeFunctionOnNextCall handshake.
+    // It's noise — the `forced` flag already conveys that — so suppress it
+    // and only print V8's own reasons (hot-and-stable, etc.).
+    const displayReasons = result.optimization.forced
+      ? reasons.filter(r => r !== 'manual')
+      : reasons;
+    if (displayReasons.length > 0) {
+      insights.push(`→ Reasons: ${displayReasons.join(', ')}`);
     }
   }
 
