@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 export const DEFAULT_CONFIG = {
   profiling: {
@@ -65,7 +66,7 @@ export async function loadConfig(configPath) {
       const content = await readFile(resolvedPath, 'utf8');
       return JSON.parse(content);
     } else if (configPath.endsWith('.js') || configPath.endsWith('.mjs')) {
-      const module = await import(`file://${resolvedPath}`);
+      const module = await import(pathToFileURL(resolvedPath).href);
       return module.default || module;
     } else {
       throw new Error(`Unsupported config file format: ${configPath}. Use .json, .js, or .mjs`);
