@@ -2,7 +2,7 @@ import { writeFile, mkdir } from 'fs/promises';
 import { dirname, resolve } from 'path';
 import { existsSync } from 'fs';
 
-export function formatJsonReport(results, options = {}) {
+function formatJsonReport(results, options = {}) {
   const {
     includeRawData = false,
     pretty = true,
@@ -181,23 +181,3 @@ export function generateFilename(template = 'profiler-{timestamp}', extension = 
   return template.replace('{timestamp}', timestamp) + '.' + extension;
 }
 
-export function validateJsonReport(jsonString) {
-  try {
-    const parsed = JSON.parse(jsonString);
-
-    const requiredFields = ['timestamp', 'version', 'results', 'summary'];
-    const missingFields = requiredFields.filter(field => !(field in parsed));
-
-    if (missingFields.length > 0) {
-      throw new Error(`Missing required fields: ${missingFields.join(', ')}`);
-    }
-
-    if (!Array.isArray(parsed.results)) {
-      throw new Error('Results must be an array');
-    }
-
-    return { valid: true, data: parsed };
-  } catch (error) {
-    return { valid: false, error: error.message };
-  }
-}

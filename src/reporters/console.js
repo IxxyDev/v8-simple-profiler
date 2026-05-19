@@ -67,7 +67,7 @@ function getReliabilityIcon(reliability) {
   }
 }
 
-export function formatPerformanceComparison(results) {
+function formatPerformanceComparison(results) {
   if (results.length < 2) return;
 
   const sorted = [...results]
@@ -97,61 +97,3 @@ export function formatPerformanceComparison(results) {
   }
 }
 
-export function formatStatisticalSummary(results) {
-  console.log('\n=== STATISTICAL SUMMARY ===');
-
-  const validResults = results.filter(r => r.timing);
-  if (validResults.length === 0) {
-    console.log('No valid results to summarize');
-    return;
-  }
-
-  const summary = {
-    totalFunctions: validResults.length,
-    totalMeasurements: validResults.reduce((sum, r) => sum + r.timing.count, 0),
-    avgMean: validResults.reduce((sum, r) => sum + r.timing.mean, 0) / validResults.length,
-    avgReliability: getAverageReliability(validResults),
-    optimizedFunctions: validResults.filter(r => r.optimization.available && r.optimization.flags?.optimized).length
-  };
-
-  console.log(`Functions tested: ${summary.totalFunctions}`);
-  console.log(`Total measurements: ${summary.totalMeasurements}`);
-  console.log(`Average execution time: ${summary.avgMean.toFixed(2)}ms`);
-  console.log(`Average reliability: ${summary.avgReliability}`);
-  console.log(`V8 optimized functions: ${summary.optimizedFunctions}/${summary.totalFunctions}`);
-}
-
-function getAverageReliability(results) {
-  const reliabilityScores = results.map(r => {
-    switch (r.timing.reliability) {
-      case 'high': return 3;
-      case 'medium': return 2;
-      case 'low': return 1;
-      default: return 0;
-    }
-  });
-
-  const avgScore = reliabilityScores.reduce((sum, score) => sum + score, 0) / reliabilityScores.length;
-
-  if (avgScore >= 2.5) return 'high';
-  if (avgScore >= 1.5) return 'medium';
-  return 'low';
-}
-
-export function formatBenchmarkProgress(current, total, name) {
-  const percent = Math.round((current / total) * 100);
-  const bar = '█'.repeat(Math.floor(percent / 5)) + '░'.repeat(20 - Math.floor(percent / 5));
-  console.log(`Progress: [${bar}] ${percent}% - ${name}`);
-}
-
-export function formatErrorReport(errors) {
-  if (errors.length === 0) return;
-
-  console.log('\n=== ERRORS ENCOUNTERED ===');
-  errors.forEach(error => {
-    console.log(`❌ ${error.context}: ${error.message}`);
-    if (error.suggestion) {
-      console.log(`   💡 Suggestion: ${error.suggestion}`);
-    }
-  });
-}
